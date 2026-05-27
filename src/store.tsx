@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import type { AppData, SavingGoal, AnnualGoal, DailyGoal, DailyRecord, Note, SavingRecord } from './types';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import type { AppData } from './types';
 
 const STORAGE_KEY = 'discipline-diary-data';
 
