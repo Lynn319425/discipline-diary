@@ -44,6 +44,7 @@ interface StoreType {
   toggleDailyRecord: (goalId: string, date: string) => void;
   isDailyDone: (goalId: string, date: string) => boolean;
   addNote: (content: string) => void;
+  updateNote: (id: string, content: string) => void;
   deleteNote: (id: string) => void;
 }
 
@@ -159,13 +160,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setData(d => ({ ...d, notes: d.notes.filter(n => n.id !== id) }));
   }, []);
 
+  const updateNote = useCallback((id: string, content: string) => {
+    setData(d => ({
+      ...d,
+      notes: d.notes.map(n => n.id === id ? { ...n, content, date: now() } : n),
+    }));
+  }, []);
+
   return (
     <StoreContext value={{
       data,
       addSavingGoal, deleteSavingGoal, addSavingRecord, deleteSavingRecord,
       addAnnualGoal, deleteAnnualGoal, toggleAnnualGoal, setAnnualPercentage,
       addDailyGoal, deleteDailyGoal, toggleDailyRecord, isDailyDone,
-      addNote, deleteNote,
+      addNote, updateNote, deleteNote,
     }}>
       {children}
     </StoreContext>

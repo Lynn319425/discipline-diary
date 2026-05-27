@@ -11,15 +11,15 @@ export default function App() {
   const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="px-5 pt-4 pb-3 bg-gray-50">
+    <div className="h-dvh bg-gray-50 flex flex-col">
+      <header className="px-5 pt-4 pb-3 bg-gray-50 shrink-0">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">自律日记</h1>
           <span className="text-sm text-gray-400">{dateStr}</span>
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-4 overflow-y-auto">
+      <main className="flex-1 px-4 pb-4 overflow-y-auto min-h-0">
         {tab === '攒钱' && <SavingsTab />}
         {tab === '年度' && <AnnualTab />}
         {tab === '每日' && <DailyTab />}
@@ -117,8 +117,8 @@ function SavingsTab() {
 
             {recordGoal === goal.id && (
               <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-2">
-                <input type="number" inputMode="decimal" placeholder="金额" value={amount} onChange={e => setAmount(e.target.value)} className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" autoFocus />
-                <input placeholder="备注（可选）" value={note} onChange={e => setNote(e.target.value)} className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" />
+                <input type="number" inputMode="decimal" placeholder="金额" value={amount} onChange={e => setAmount(e.target.value)} className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
+                <input placeholder="备注（可选）" value={note} onChange={e => setNote(e.target.value)} className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
                 <div className="flex gap-2">
                   <button onClick={handleAddRecord} className="flex-1 py-2 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition-colors">确认</button>
                   <button onClick={() => setRecordGoal(null)} className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
@@ -131,8 +131,8 @@ function SavingsTab() {
 
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
-          <input placeholder="目标名称，如：买相机" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" autoFocus />
-          <input type="number" inputMode="decimal" placeholder="目标金额（¥）" value={target} onChange={e => setTarget(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" />
+          <input placeholder="目标名称，如：买相机" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
+          <input type="number" inputMode="decimal" placeholder="目标金额（¥）" value={target} onChange={e => setTarget(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
           <div className="flex gap-2">
             <button onClick={handleAddGoal} className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加</button>
             <button onClick={() => setShowForm(false)} className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
@@ -188,7 +188,7 @@ function AnnualTab() {
 
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
-          <input placeholder="目标名称，如：学会游泳" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" autoFocus />
+          <input placeholder="目标名称，如：学会游泳" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
           <div className="flex gap-2">
             <button onClick={handleAdd} className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加</button>
             <button onClick={() => setShowForm(false)} className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
@@ -250,7 +250,7 @@ function DailyTab() {
 
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
-          <input placeholder="习惯名称，如：健身30分钟" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" autoFocus />
+          <input placeholder="习惯名称，如：健身30分钟" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
           <div className="flex gap-2">
             <button onClick={handleAdd} className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加</button>
             <button onClick={() => setShowForm(false)} className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
@@ -269,14 +269,22 @@ function DailyTab() {
 
 /* ===== 备忘录 ===== */
 function NotesTab() {
-  const { data, addNote, deleteNote } = useStore();
+  const { data, addNote, updateNote, deleteNote } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [content, setContent] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
 
   const handleAdd = () => {
     if (!content.trim()) return;
     addNote(content.trim());
     setContent(''); setShowForm(false);
+  };
+
+  const handleEdit = () => {
+    if (!editingId || !editContent.trim()) return;
+    updateNote(editingId, editContent.trim());
+    setEditingId(null); setEditContent('');
   };
 
   const sorted = [...data.notes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -289,19 +297,31 @@ function NotesTab() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
         {sorted.map(n => (
-          <div key={n.id} className="px-4 py-3">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-gray-400">{formatDate(n.date)}</span>
-              <button onClick={() => { if (confirm('删除这条？')) deleteNote(n.id); }} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
-            </div>
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{n.content}</p>
+          <div key={n.id}>
+            {editingId === n.id ? (
+              <div className="p-3 space-y-2">
+                <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={4} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 resize-none placeholder:text-gray-400" autoFocus />
+                <div className="flex gap-2">
+                  <button onClick={handleEdit} className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">保存</button>
+                  <button onClick={() => setEditingId(null)} className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 py-3 cursor-pointer" onClick={() => { setEditingId(n.id); setEditContent(n.content); }}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-400">{formatDate(n.date)}</span>
+                  <button onClick={e => { e.stopPropagation(); if (confirm('删除这条？')) deleteNote(n.id); }} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{n.content}</p>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
-          <textarea placeholder="随便写点什么…" value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 resize-none" autoFocus />
+          <textarea placeholder="随便写点什么…" value={content} onChange={e => setContent(e.target.value)} rows={4} className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 resize-none placeholder:text-gray-400" autoFocus />
           <div className="flex gap-2">
             <button onClick={handleAdd} className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">保存</button>
             <button onClick={() => setShowForm(false)} className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
