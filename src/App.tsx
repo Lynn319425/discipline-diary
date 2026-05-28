@@ -51,6 +51,7 @@ function SavingsTab() {
   const [recordGoal, setRecordGoal] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
 
   const handleAddGoal = () => {
     if (!name.trim() || !target.trim()) return;
@@ -98,7 +99,7 @@ function SavingsTab() {
               <>
                 <p className="text-xs text-gray-400 font-medium mt-3 mb-1.5">记录</p>
                 <div className="space-y-1">
-                  {goal.records.map(r => (
+                  {(expandedGoalId === goal.id ? goal.records : goal.records.slice(0, 3)).map(r => (
                     <div key={r.id} className="flex items-center justify-between text-sm">
                       <span className="text-gray-400 w-12 shrink-0">{r.date.slice(5)}</span>
                       <span className="flex-1 text-gray-600 truncate mx-2">{r.note || '攒钱'}</span>
@@ -107,6 +108,12 @@ function SavingsTab() {
                     </div>
                   ))}
                 </div>
+                {goal.records.length > 3 && (
+                  <button onClick={() => setExpandedGoalId(expandedGoalId === goal.id ? null : goal.id)}
+                    className="text-xs text-gray-400 hover:text-gray-600 mt-1.5 flex items-center gap-1 transition-colors">
+                    {expandedGoalId === goal.id ? '收起 ▲' : `查看全部 ${goal.records.length} 条记录 ▼`}
+                  </button>
+                )}
               </>
             )}
 
