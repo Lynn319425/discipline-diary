@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from './store';
-import type { SavingGoal } from './types';
+import type { SavingGoal, DailyRecord } from './types';
 
 const tabs = ['攒钱', '年度', '每日', '备忘录'] as const;
 const tabIcons = ['💰', '🎯', '✅', '📝'] as const;
@@ -210,6 +210,7 @@ function DailyTab() {
   const { data, addDailyGoal, deleteDailyGoal, toggleDailyRecord, isDailyDone } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
+  const [showMonthly, setShowMonthly] = useState(false);
   const todayStr = today();
 
   const handleAdd = () => {
@@ -225,9 +226,33 @@ function DailyTab() {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-medium text-gray-400">{todayStr}</h2>
         {data.dailyGoals.length > 0 && (
-          <span className="text-sm text-gray-400">{doneCount}/{data.dailyGoals.length}</span>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setShowMonthly(!showMonthly)} className={`text-xs transition-colors flex items-center gap-1 ${showMonthly ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}>
+              📊 本月 <span className="text-[10px]">{showMonthly ? '▲' : '▼'}</span>
+            </button>
+            <span className="text-sm text-gray-400">{doneCount}/{data.dailyGoals.length}</span>
+          </div>
         )}
       </div>
+
+      {showMonthly && data.dailyGoals.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+          <p className="text-xs font-medium text-gray-400">📊 本月概览</p>
+          {data.dailyGoals.map(goal => {
+            const stats = calcMonthlyStats(data.dailyRecords, goal.id);
+            return (
+              <div key={goal.id} className="flex items-center gap-2">
+                <span className="text-sm text-gray-700 w-16 shrink-0 truncate">{goal.name}</span>
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${stats.percentage}%` }} />
+                </div>
+                <span className="text-xs text-gray-400 shrink-0 w-16 text-right">{stats.doneCount}/{stats.totalDays}</span>
+                <span className="text-xs text-gray-500 shrink-0 w-8 text-right">{stats.percentage}%</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {data.dailyGoals.length === 0 && !showForm && (
         <EmptyState icon="✅" text="还没有每日目标，添加一个吧" />
@@ -236,13 +261,17 @@ function DailyTab() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
         {data.dailyGoals.map(goal => {
           const done = isDailyDone(goal.id, todayStr);
+          const streak = calcStreak(data.dailyRecords, goal.id);
           return (
             <div key={goal.id} className="flex items-center gap-3 px-4 py-3">
               <button onClick={() => toggleDailyRecord(goal.id, todayStr)} className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 transition-all ${done ? 'bg-emerald-500 text-white' : 'border-2 border-gray-300'}`}>
                 {done && '✓'}
               </button>
               <span className={`flex-1 text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{goal.name}</span>
-              <button onClick={() => { if (confirm('删除这个习惯？')) deleteDailyGoal(goal.id); }} className="text-gray-300 hover:text-red-400 text-xs">✕</button>
+              {streak > 0 && (
+                <span className="text-xs text-orange-500 shrink-0">🔥 {streak}天</span>
+              )}
+              <button onClick={() => { if (confirm('删除这个习惯？')) deleteDailyGoal(goal.id); }} className="text-gray-300 hover:text-red-400 text-xs shrink-0">✕</button>
             </div>
           );
         })}
@@ -338,6 +367,41 @@ function NotesTab() {
   );
 }
 
+/* ======== 每日目标辅助函数 ======== */
+
+function dateToStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 计算某个习惯的当前连续打卡天数（从最近完成的连续日往历史回溯） */
+function calcStreak(records: DailyRecord[], goalId: string): number {
+  const today = new Date();
+  const todayStr = dateToStr(today);
+  const doneToday = records.some(r => r.goalId === goalId && r.date === todayStr);
+
+  // 如果今天已打卡，从今天开始算；否则从昨天开始算（给今天机会）
+  const d = new Date(today);
+  if (!doneToday) d.setDate(d.getDate() - 1);
+
+  let streak = 0;
+  while (true) {
+    const ds = dateToStr(d);
+    if (!records.some(r => r.goalId === goalId && r.date === ds)) break;
+    streak++;
+    d.setDate(d.getDate() - 1);
+  }
+  return streak;
+}
+
+/** 计算某个习惯本月完成情况 */
+function calcMonthlyStats(records: DailyRecord[], goalId: string) {
+  const today = new Date();
+  const prefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const doneCount = records.filter(r => r.goalId === goalId && r.date.startsWith(prefix)).length;
+  const totalDays = today.getDate();
+  return { doneCount, totalDays, percentage: Math.round((doneCount / totalDays) * 100) };
+}
+
 /* ===== Shared ===== */
 function EmptyState({ icon, text }: { icon: string; text: string }) {
   return (
@@ -349,8 +413,7 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
 }
 
 function today() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return dateToStr(new Date());
 }
 
 function formatDate(iso: string) {
