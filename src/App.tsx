@@ -20,10 +20,24 @@ export default function App() {
   const [tempReminderTime, setTempReminderTime] = useState(data.reminderTime || '21:00');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [newVersion, setNewVersion] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
   const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
   const todayStr = dateToStr(new Date());
+
+  // Check for new deployed version
+  useEffect(() => {
+    const key = 'discipline-diary-version';
+    fetch('/discipline-diary/version.json')
+      .then(r => r.json())
+      .then(v => {
+        const cached = localStorage.getItem(key);
+        if (cached && cached !== v.version) setNewVersion(true);
+        localStorage.setItem(key, v.version);
+      })
+      .catch(() => {});
+  }, []);
 
   // Listen for PWA install prompt
   useEffect(() => {
@@ -143,6 +157,13 @@ export default function App() {
           <div className="mt-2 bg-amber-50 rounded-xl px-3 py-2 flex items-center justify-between">
             <span className="text-xs text-amber-700">📱 添加到主屏幕，使用更方便</span>
             <button onClick={handleInstall} className="text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg">添加</button>
+          </div>
+        )}
+        {newVersion && (
+          <div className="mt-2 bg-blue-50 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span className="text-xs text-blue-700">✨ 新版本已发布，请刷新页面</span>
+            <button onClick={() => window.location.reload()}
+              className="text-xs font-medium text-blue-700 bg-blue-100 px-2.5 py-1 rounded-lg">刷新</button>
           </div>
         )}
         {showSettings && (
