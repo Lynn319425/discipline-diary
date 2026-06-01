@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from './store';
 import type { SavingGoal, DailyRecord } from './types';
 
@@ -19,6 +19,8 @@ export default function App() {
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const [tempReminderTime, setTempReminderTime] = useState(data.reminderTime || '21:00');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const dateStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
   const todayStr = dateToStr(new Date());
@@ -37,6 +39,40 @@ export default function App() {
     if (!installPrompt) return;
     installPrompt.prompt();
     installPrompt.userChoice.then(() => setInstallPrompt(null));
+  };
+
+  const handleExport = () => {
+    const raw = localStorage.getItem('discipline-diary-data');
+    if (!raw) { alert('没有数据可导出'); return; }
+    const blob = new Blob([raw], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `自律日记备份_${today().replace(/-/g, '')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string);
+        if (!data.savingGoals && !data.annualGoals && !data.dailyGoals) {
+          alert('文件格式不正确，请选择正确的备份文件');
+          return;
+        }
+        localStorage.setItem('discipline-diary-data', JSON.stringify(data));
+        alert('数据导入成功！页面即将刷新');
+        window.location.reload();
+      } catch {
+        alert('文件解析失败，请确认是有效的备份文件');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   // Notification reminder check
@@ -80,6 +116,9 @@ export default function App() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">自律日记</h1>
           <div className="flex items-center gap-3">
+            <button onClick={() => setShowSettings(!showSettings)} className="text-sm text-gray-400 hover:text-gray-600" title="设置">
+              ⚙️
+            </button>
             <button onClick={handleNotifyClick} className="text-sm relative" title={data.reminderTime ? `每日 ${data.reminderTime} 提醒` : '设置每日提醒'}>
               {data.reminderTime ? '🔔' : '🔕'}
             </button>
@@ -106,6 +145,25 @@ export default function App() {
             <button onClick={handleInstall} className="text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg">添加</button>
           </div>
         )}
+        {showSettings && (
+          <div className="mt-2 bg-white rounded-xl shadow-lg border border-gray-100 p-3 space-y-2">
+            <p className="text-xs font-medium text-gray-400">⚙️ 数据管理</p>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              数据存储在浏览器本地，清除网站数据会丢失。建议定期备份。
+            </p>
+            <div className="flex gap-2">
+              <button onClick={handleExport}
+                className="flex-1 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                📤 导出备份
+              </button>
+              <button onClick={() => importRef.current?.click()}
+                className="flex-1 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                📥 导入备份
+              </button>
+            </div>
+          </div>
+        )}
+        <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
       </header>
 
       <main className="flex-1 px-4 pb-4 overflow-y-auto min-h-0">
