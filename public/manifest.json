@@ -1,0 +1,16 @@
+{
+  "name": "自律日记",
+  "short_name": "自律日记",
+  "description": "个人自律打卡 + 记账工具",
+  "start_url": "/discipline-diary/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#f8fafc",
+  "icons": [
+    {
+      "src": "/discipline-diary/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
