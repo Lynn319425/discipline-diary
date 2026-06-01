@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from './store';
+import { getSWUpdateReady } from './main';
 import type { SavingGoal, DailyRecord } from './types';
 
 const tabs = ['攒钱', '年度', '每日', '记账', '备忘录'] as const;
@@ -37,6 +38,13 @@ export default function App() {
         localStorage.setItem(key, v.version);
       })
       .catch(() => {});
+
+    // Check if a PWA SW update is waiting
+    const apply = getSWUpdateReady();
+    if (apply) {
+      const ok = confirm('📲 自律日记有更新，是否立即刷新应用？');
+      if (ok) apply();
+    }
   }, []);
 
   // Listen for PWA install prompt
