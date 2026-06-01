@@ -63,7 +63,7 @@ interface StoreType {
   setAnnualGoalMode: (goalId: string, mode: 'percentage' | 'subtasks') => void;
   addDailyGoal: (name: string) => void;
   deleteDailyGoal: (id: string) => void;
-  toggleDailyRecord: (goalId: string, date: string) => void;
+  toggleDailyRecord: (goalId: string, date: string, late?: boolean) => void;
   isDailyDone: (goalId: string, date: string) => boolean;
   addExpense: (date: string, amount: number, category: string, note: string, type: 'expense' | 'income', source?: 'manual' | 'alipay' | 'wechat') => void;
   deleteExpense: (id: string) => void;
@@ -223,13 +223,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const toggleDailyRecord = useCallback((goalId: string, date: string) => {
+  const toggleDailyRecord = useCallback((goalId: string, date: string, late?: boolean) => {
     setData(d => {
       const existing = d.dailyRecords.find(r => r.goalId === goalId && r.date === date);
       if (existing) {
         return { ...d, dailyRecords: d.dailyRecords.filter(r => r.id !== existing.id) };
       }
-      return { ...d, dailyRecords: [...d.dailyRecords, { id: uid(), goalId, date, completed: true }] };
+      return { ...d, dailyRecords: [...d.dailyRecords, { id: uid(), goalId, date, completed: true, late: !!late }] };
     });
   }, []);
 

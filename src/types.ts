@@ -41,6 +41,7 @@ export interface DailyRecord {
   goalId: string;
   date: string;
   completed: boolean;
+  late?: boolean;
 }
 
 export interface ExpenseRecord {

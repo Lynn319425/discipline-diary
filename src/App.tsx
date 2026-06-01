@@ -145,28 +145,30 @@ function formatDate(iso: string) {
   return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** 计算连续打卡天数 */
+/** 计算连续打卡天数（排除补打卡） */
 function calcStreak(records: DailyRecord[], goalId: string): number {
+  const ontime = records.filter(r => !r.late);
   const today = new Date();
   const todayStr = dateToStr(today);
-  const doneToday = records.some(r => r.goalId === goalId && r.date === todayStr);
+  const doneToday = ontime.some(r => r.goalId === goalId && r.date === todayStr);
   const d = new Date(today);
   if (!doneToday) d.setDate(d.getDate() - 1);
   let streak = 0;
   while (true) {
     const ds = dateToStr(d);
-    if (!records.some(r => r.goalId === goalId && r.date === ds)) break;
+    if (!ontime.some(r => r.goalId === goalId && r.date === ds)) break;
     streak++;
     d.setDate(d.getDate() - 1);
   }
   return streak;
 }
 
-/** 计算本月完成情况 */
+/** 计算本月完成情况（排除补打卡） */
 function calcMonthlyStats(records: DailyRecord[], goalId: string) {
+  const ontime = records.filter(r => !r.late);
   const today = new Date();
   const prefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  const doneCount = records.filter(r => r.goalId === goalId && r.date.startsWith(prefix)).length;
+  const doneCount = ontime.filter(r => r.goalId === goalId && r.date.startsWith(prefix)).length;
   const totalDays = today.getDate();
   return { doneCount, totalDays, percentage: Math.round((doneCount / totalDays) * 100) };
 }
@@ -320,7 +322,12 @@ function AnnualTab() {
         <EmptyState icon="🎯" text="还没有年度目标，添加一个吧" />
       )}
 
-      {data.annualGoals.map(goal => (
+      {[...data.annualGoals]
+        .sort((a, b) => {
+          if (a.completed !== b.completed) return a.completed ? 1 : -1;
+          return 0;
+        })
+        .map(goal => (
         <div key={goal.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-3 mb-2">
             <button onClick={() => toggleAnnualGoal(goal.id)}
@@ -487,6 +494,9 @@ function DailyTab() {
         {data.dailyGoals.map(goal => {
           const done = isDailyDone(goal.id, todayStr);
           const streak = calcStreak(data.dailyRecords, goal.id);
+          const yesterdayStr = dateToStr(new Date(Date.now() - 86400000));
+          const hasYesterday = data.dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && !r.late);
+          const hasYesterdayLate = data.dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && r.late);
           return (
             <div key={goal.id} className="flex items-center gap-3 px-4 py-3">
               <button onClick={() => toggleDailyRecord(goal.id, todayStr)}
@@ -494,6 +504,12 @@ function DailyTab() {
                 {done && '✓'}
               </button>
               <span className={`flex-1 text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{goal.name}</span>
+              {!hasYesterday && (
+                <button onClick={() => toggleDailyRecord(goal.id, yesterdayStr, true)}
+                  className={`text-[10px] shrink-0 transition-colors ${hasYesterdayLate ? 'text-amber-500' : 'text-gray-400 hover:text-amber-500'}`}>
+                  {hasYesterdayLate ? '已补✓' : '补昨日'}
+                </button>
+              )}
               {streak > 0 && (
                 <span className="text-xs text-orange-500 shrink-0">🔥 {streak}天</span>
               )}
