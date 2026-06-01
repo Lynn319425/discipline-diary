@@ -252,6 +252,71 @@ function calcMonthlyStats(records: DailyRecord[], goalId: string) {
   return { doneCount, totalDays, percentage: Math.round((doneCount / totalDays) * 100) };
 }
 
+/** 日历热力图（按天显示所有目标的完成情况） */
+function MonthlyHeatmap({ records, dailyGoals }: { records: DailyRecord[]; dailyGoals: { id: string }[] }) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startDow = firstDay.getDay();
+  const totalGoals = dailyGoals.length;
+  const ontime = records.filter(r => !r.late);
+
+  // Build per-day completion data
+  const dayData: { day: number; pct: number }[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const doneCount = ontime.filter(r => r.date === dateStr).length;
+    dayData.push({ day: d, pct: totalGoals > 0 ? doneCount / totalGoals : 0 });
+  }
+
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+
+  const cellColor = (pct: number) => {
+    if (pct === 0) return 'bg-gray-100 text-gray-400';
+    if (pct < 0.34) return 'bg-emerald-200 text-emerald-800';
+    if (pct < 0.67) return 'bg-emerald-400 text-white';
+    if (pct < 1) return 'bg-emerald-500 text-white';
+    return 'bg-emerald-600 text-white';
+  };
+
+  return (
+    <div>
+      <div className="grid grid-cols-7 gap-1">
+        {weekDays.map(w => (
+          <div key={w} className="text-[10px] text-gray-400 text-center h-5 flex items-center justify-center">{w}</div>
+        ))}
+        {Array.from({ length: startDow }).map((_, i) => (
+          <div key={`e${i}`} />
+        ))}
+        {dayData.map(d => (
+          <div key={d.day}
+            className={`aspect-square rounded-sm flex items-center justify-center text-[11px] font-medium transition-colors ${cellColor(d.pct)}`}
+            title={`${month + 1}月${d.day}日 — ${Math.round(d.pct * 100)}%`}>
+            {d.day}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between mt-2">
+        <span className="text-[10px] text-gray-400">
+          {dayData.filter(d => d.pct >= 1).length}/{daysInMonth} 天全勤
+        </span>
+        <div className="flex items-center gap-1 text-[10px] text-gray-400">
+          <span>少</span>
+          <div className="w-3 h-3 rounded-sm bg-gray-100" />
+          <div className="w-3 h-3 rounded-sm bg-emerald-200" />
+          <div className="w-3 h-3 rounded-sm bg-emerald-400" />
+          <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+          <div className="w-3 h-3 rounded-sm bg-emerald-600" />
+          <span>多</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ===== 攒钱 ===== */
 function SavingsTab() {
   const { data, addSavingGoal, addSavingRecord, deleteSavingGoal, deleteSavingRecord } = useStore();
@@ -555,21 +620,27 @@ function DailyTab() {
       </div>
 
       {showMonthly && data.dailyGoals.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
-          <p className="text-xs font-medium text-gray-400">📊 本月概览</p>
-          {data.dailyGoals.map(goal => {
-            const stats = calcMonthlyStats(data.dailyRecords, goal.id);
-            return (
-              <div key={goal.id} className="flex items-center gap-2">
-                <span className="text-sm text-gray-700 w-16 shrink-0 truncate">{goal.name}</span>
-                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${stats.percentage}%` }} />
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
+          <div>
+            <p className="text-xs font-medium text-gray-400 mb-3">📊 {todayStr.slice(0, 7)} 打卡热力图</p>
+            <MonthlyHeatmap records={data.dailyRecords} dailyGoals={data.dailyGoals} />
+          </div>
+          <div className="border-t border-gray-50 pt-3 space-y-2">
+            <p className="text-xs font-medium text-gray-400">各目标完成率</p>
+            {data.dailyGoals.map(goal => {
+              const stats = calcMonthlyStats(data.dailyRecords, goal.id);
+              return (
+                <div key={goal.id} className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700 w-16 shrink-0 truncate">{goal.name}</span>
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${stats.percentage}%` }} />
+                  </div>
+                  <span className="text-xs text-gray-400 shrink-0 w-16 text-right">{stats.doneCount}/{stats.totalDays}</span>
+                  <span className="text-xs text-gray-500 shrink-0 w-8 text-right">{stats.percentage}%</span>
                 </div>
-                <span className="text-xs text-gray-400 shrink-0 w-16 text-right">{stats.doneCount}/{stats.totalDays}</span>
-                <span className="text-xs text-gray-500 shrink-0 w-8 text-right">{stats.percentage}%</span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
 
