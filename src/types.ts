@@ -26,7 +26,7 @@ export interface AnnualGoal {
   percentage: number;
   completed: boolean;
   createdAt: string;
-  mode: 'percentage' | 'subtasks';
+  mode: 'percentage' | 'subtasks' | 'checkbox';
   subtasks: AnnualSubTask[];
 }
 

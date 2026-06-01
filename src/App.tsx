@@ -339,13 +339,15 @@ function AnnualTab() {
               className="text-gray-300 hover:text-red-400 text-xs">✕</button>
           </div>
 
-          {/* 进度条 */}
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
-            <div className={`h-full rounded-full transition-all ${goal.completed ? 'bg-emerald-400' : 'bg-amber-400'}`}
-              style={{ width: `${goal.percentage}%` }} />
-          </div>
+          {/* 进度条（checkbox 模式不显示） */}
+          {goal.mode !== 'checkbox' && (
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
+              <div className={`h-full rounded-full transition-all ${goal.completed ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                style={{ width: `${goal.percentage}%` }} />
+            </div>
+          )}
 
-          {/* 模式切换 */}
+          {/* 模式切换（已完成不显示） */}
           {!goal.completed && (
             <div className="flex items-center gap-2 mb-3">
               <div className="flex bg-gray-100 rounded-lg p-0.5 text-xs">
@@ -357,8 +359,14 @@ function AnnualTab() {
                   className={`px-2.5 py-1 rounded-md transition-colors ${goal.mode === 'subtasks' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500'}`}>
                   子任务
                 </button>
+                <button onClick={() => setAnnualGoalMode(goal.id, 'checkbox')}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${goal.mode === 'checkbox' ? 'bg-white shadow-sm text-gray-900 font-medium' : 'text-gray-500'}`}>
+                  一次性
+                </button>
               </div>
-              <span className="text-xs text-gray-400 ml-auto">{goal.percentage}%</span>
+              {goal.mode !== 'checkbox' && (
+                <span className="text-xs text-gray-400 ml-auto">{goal.percentage}%</span>
+              )}
             </div>
           )}
 

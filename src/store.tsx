@@ -60,7 +60,7 @@ interface StoreType {
   addAnnualSubTask: (goalId: string, name: string) => void;
   toggleAnnualSubTask: (goalId: string, subTaskId: string) => void;
   deleteAnnualSubTask: (goalId: string, subTaskId: string) => void;
-  setAnnualGoalMode: (goalId: string, mode: 'percentage' | 'subtasks') => void;
+  setAnnualGoalMode: (goalId: string, mode: 'percentage' | 'subtasks' | 'checkbox') => void;
   addDailyGoal: (name: string) => void;
   deleteDailyGoal: (id: string) => void;
   toggleDailyRecord: (goalId: string, date: string, late?: boolean) => void;
@@ -192,7 +192,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const setAnnualGoalMode = useCallback((goalId: string, mode: 'percentage' | 'subtasks') => {
+  const setAnnualGoalMode = useCallback((goalId: string, mode: 'percentage' | 'subtasks' | 'checkbox') => {
     setData(d => ({
       ...d,
       annualGoals: d.annualGoals.map(g => {
@@ -201,6 +201,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const done = g.subtasks.filter(s => s.completed).length;
           const pct = g.subtasks.length > 0 ? Math.round((done / g.subtasks.length) * 100) : g.percentage;
           return { ...g, mode, percentage: pct, completed: pct >= 100 };
+        }
+        if (mode === 'checkbox') {
+          return { ...g, mode, percentage: 0, subtasks: [] };
         }
         return { ...g, mode };
       }),
