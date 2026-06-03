@@ -16,7 +16,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 /* ===== App 根组件 ===== */
 export default function App() {
   const { data, setReminderTime, setLastNotifyDate } = useStore();
-  const [tab, setTab] = useState<Tab>('攒钱');
+  const [tab, setTab] = useState<Tab>('每日');
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const [tempReminderTime, setTempReminderTime] = useState(data.reminderTime || '21:00');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
