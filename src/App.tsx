@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from './store';
 import { getSWUpdateReady } from './main';
-import type { SavingGoal, DailyRecord } from './types';
+import type { SavingGoal, DailyRecord, DrinkRecord } from './types';
 
 const tabs = ['攒钱', '年度', '每日', '记账', '备忘录'] as const;
 const tabIcons = ['💰', '🎯', '✅', '💳', '📝'] as const;
@@ -258,6 +258,19 @@ function calcMonthlyStats(records: DailyRecord[], goalId: string) {
   const doneCount = ontime.filter(r => r.goalId === goalId && r.date.startsWith(prefix)).length;
   const totalDays = today.getDate();
   return { doneCount, totalDays, percentage: Math.round((doneCount / totalDays) * 100) };
+}
+
+/* ===== 奶茶/咖啡追踪 ===== */
+const DRINK_TYPES = { milk_tea: '🧋', coffee: '☕', other: '🥤' } as const;
+
+/** 获取某天所在周的第一天（周一） */
+function getWeekStart(date: Date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 /** 日历热力图（按天显示所有目标的完成情况） */
@@ -686,6 +699,9 @@ function DailyTab() {
         })}
       </div>
 
+      {/* 奶茶咖啡追踪 */}
+      <DrinkTrackerSection />
+
       {showForm && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
           <input placeholder="习惯名称，如：健身30分钟" value={name} onChange={e => setName(e.target.value)}
@@ -709,14 +725,149 @@ function DailyTab() {
   );
 }
 
+/* ===== 奶茶咖啡追踪（每日 tab 副区） ===== */
+function DrinkTrackerSection() {
+  const { data, addDrinkRecord, deleteDrinkRecord } = useStore();
+  const LIMIT = 2;
+
+  // 本周日期
+  const today = new Date();
+  const weekStart = getWeekStart(today);
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+
+  const dayNames = ['一', '二', '三', '四', '五', '六', '日'];
+  const weekEnd = new Date(weekDays[6]);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  // 过滤本周记录
+  const weekRecords = data.drinkRecords.filter(r => {
+    const rd = new Date(r.date);
+    return rd >= weekStart && rd <= weekEnd;
+  });
+
+  // 按日期分组
+  const dayMap: Record<string, DrinkRecord[]> = {};
+  weekRecords.forEach(r => {
+    if (!dayMap[r.date]) dayMap[r.date] = [];
+    dayMap[r.date].push(r);
+  });
+
+  const weekCount = weekRecords.length;
+  const todayStr = dateToStr(today);
+
+  // 一天中是否已有记录
+  const getDayRecords = (d: Date) => dayMap[dateToStr(d)] || [];
+  const isTodayFn = (d: Date) => dateToStr(d) === todayStr;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-700">🧋 奶茶咖啡追踪</h3>
+        <span className="text-xs text-gray-400">每周 ≤ {LIMIT} 杯</span>
+      </div>
+
+      {/* 周一到周日的日期块 */}
+      <div className="flex gap-1.5">
+        {weekDays.map((d, i) => {
+          const records = getDayRecords(d);
+          const isT = isTodayFn(d);
+          return (
+            <div key={i}
+              className={`flex-1 flex flex-col items-center py-1.5 rounded-lg text-xs relative
+                ${isT ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-gray-50'}`}>
+              <span className="text-gray-500 leading-tight">{dayNames[i]}</span>
+              <span className={`leading-tight ${isT ? 'text-amber-800 font-semibold' : 'text-gray-700'}`}>
+                {d.getDate()}
+              </span>
+              {records.length > 0 && (
+                <span className="text-[10px] leading-tight mt-0.5">
+                  {records.map(r => DRINK_TYPES[r.type]).join('')}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 进度 */}
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs">
+          <span className={weekCount > LIMIT ? 'text-orange-600 font-medium' : 'text-gray-500'}>
+            本周已喝 {weekCount} 杯
+          </span>
+          <span className={
+            weekCount > LIMIT ? 'text-orange-600 font-medium'
+            : weekCount === LIMIT ? 'text-emerald-600 font-medium'
+            : 'text-gray-400'
+          }>
+            {weekCount > LIMIT ? `⚠️ 已超额 ${weekCount - LIMIT} 杯`
+            : weekCount === LIMIT ? '✅ 本周已达标'
+            : `还可喝 ${LIMIT - weekCount} 杯`}
+          </span>
+        </div>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${
+            weekCount > LIMIT ? 'bg-orange-400'
+            : weekCount === LIMIT ? 'bg-emerald-400'
+            : 'bg-amber-400'
+          }`} style={{ width: `${Math.min(100, (weekCount / LIMIT) * 100)}%` }} />
+        </div>
+      </div>
+
+      {/* 本周记录列表 */}
+      {weekRecords.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {weekRecords.sort((a, b) => b.date.localeCompare(a.date)).map(r => (
+            <div key={r.id}
+              className="flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-full text-xs">
+              <span>{DRINK_TYPES[r.type]}</span>
+              <span className="text-gray-400">{r.date.slice(5)}</span>
+              <button onClick={() => deleteDrinkRecord(r.id)}
+                className="ml-0.5 text-gray-300 hover:text-red-400 text-[10px] leading-none">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 添加按钮 */}
+      <div className="flex gap-2">
+        <button onClick={() => addDrinkRecord(todayStr, 'milk_tea')}
+          className="flex-1 py-2 text-xs font-medium rounded-lg transition-colors
+            bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200
+            active:scale-95">
+          🧋 奶茶
+        </button>
+        <button onClick={() => addDrinkRecord(todayStr, 'coffee')}
+          className="flex-1 py-2 text-xs font-medium rounded-lg transition-colors
+            bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200
+            active:scale-95">
+          ☕ 咖啡
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ===== 记账 ===== */
 function ExpensesTab() {
   const { data, addExpense, deleteExpense, importExpenses, setMonthlyBudget } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [showCSV, setShowCSV] = useState(false);
   const [csvText, setCsvText] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const [showBudgetInput, setShowBudgetInput] = useState(false);
   const [budgetInput, setBudgetInput] = useState('');
+  const csvFileRef = useRef<HTMLInputElement>(null);
+
+  const [showReconcile, setShowReconcile] = useState(false);
+  const [reconcileDate, setReconcileDate] = useState(today());
+  const [reconcileCredit, setReconcileCredit] = useState('');
+  const [reconcileBank, setReconcileBank] = useState('');
+  const [reconcileOther, setReconcileOther] = useState('');
 
   const [formDate, setFormDate] = useState(today());
   const [formAmount, setFormAmount] = useState('');
@@ -749,8 +900,8 @@ function ExpensesTab() {
     setFormType('expense');
   };
 
-  const handleCSVImport = () => {
-    const records = parseCSV(csvText);
+  const handleCSVImport = (text?: string) => {
+    const records = parseCSV(text ?? csvText);
     if (records.length === 0) {
       alert('未能识别出有效记录，请确认 CSV 格式正确（支持支付宝/微信导出格式）');
       return;
@@ -758,6 +909,54 @@ function ExpensesTab() {
     importExpenses(records);
     setCsvText('');
     setShowCSV(false);
+  };
+
+  const handleCSVFile = (file: File) => {
+    if (!file.name.endsWith('.csv')) {
+      alert('请选择 CSV 文件');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string;
+      setCsvText(text);
+      // 自动解析导入
+      handleCSVImport(text);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleCSVFile(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleCSVFile(file);
+    e.target.value = '';
+  };
+
+  const handleReconcile = () => {
+    let count = 0;
+    if (reconcileCredit.trim() && Number(reconcileCredit) > 0) {
+      addExpense(reconcileDate, Number(reconcileCredit), '其他', '信用卡月结', 'expense');
+      count++;
+    }
+    if (reconcileBank.trim() && Number(reconcileBank) > 0) {
+      addExpense(reconcileDate, Number(reconcileBank), '其他', '银行卡月结', 'expense');
+      count++;
+    }
+    if (reconcileOther.trim() && Number(reconcileOther) > 0) {
+      addExpense(reconcileDate, Number(reconcileOther), '其他', '其他月结', 'expense');
+      count++;
+    }
+    if (count > 0) {
+      setReconcileCredit(''); setReconcileBank(''); setReconcileOther('');
+      setShowReconcile(false);
+    }
   };
 
   return (
@@ -850,14 +1049,18 @@ function ExpensesTab() {
       </div>
 
       {/* 操作按钮 */}
-      <div className="flex gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <button onClick={() => setShowForm(true)}
-          className="flex-1 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors">
-          ✏️ 手动记账
+          className="py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors">
+          ✏️ 记账
         </button>
         <button onClick={() => setShowCSV(true)}
-          className="flex-1 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-          📄 导入 CSV
+          className="py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+          📄 CSV
+        </button>
+        <button onClick={() => setShowReconcile(true)}
+          className="py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+          📦 月结
         </button>
       </div>
 
@@ -896,24 +1099,66 @@ function ExpensesTab() {
 
       {/* CSV 导入 */}
       {showCSV && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
           <p className="text-xs font-medium text-gray-400">📄 导入 CSV 账单</p>
-          <p className="text-xs text-gray-400">从支付宝 / 微信支付导出账单 CSV，粘贴到下方即可自动识别</p>
-          <textarea placeholder="粘贴 CSV 内容……" value={csvText} onChange={e => setCsvText(e.target.value)}
-            rows={5}
-            className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 font-mono resize-none" />
-          <div className="flex gap-2">
-            <button onClick={handleCSVImport}
-              className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
+          <p className="text-xs text-gray-400">支持支付宝 / 微信导出 CSV 文件</p>
+
+          {/* 拖拽区 / 文件选择 */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleFileDrop}
+            onClick={() => csvFileRef.current?.click()}
+            className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors
+              ${dragOver ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-amber-300 hover:bg-gray-50'}`}>
+            <p className="text-sm text-gray-400">{dragOver ? '📄 松开导入' : '📄 拖拽 CSV 文件到此处'}</p>
+            <p className="text-xs text-gray-300 mt-1">或点击选择文件</p>
+          </div>
+          <input ref={csvFileRef} type="file" accept=".csv" className="hidden" onChange={handleFileSelect} />
+
+          {/* 手动粘贴备选 */}
+          <details className="text-xs">
+            <summary className="text-gray-400 cursor-pointer hover:text-gray-600 select-none">或手动粘贴 CSV 文本</summary>
+            <textarea placeholder="粘贴 CSV 内容……" value={csvText} onChange={e => setCsvText(e.target.value)}
+              rows={4}
+              className="w-full mt-2 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 font-mono resize-none" />
+            <button onClick={() => handleCSVImport()}
+              className="mt-2 w-full py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
               disabled={!csvText.trim()}>解析并导入</button>
-            <button onClick={() => setShowCSV(false)}
+          </details>
+
+          <button onClick={() => setShowCSV(false)}
+            className="text-xs text-gray-400 hover:text-gray-600">取消</button>
+        </div>
+      )}
+
+      {/* 快速月结 */}
+      {showReconcile && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+          <p className="text-xs font-medium text-gray-400">📦 快速月结</p>
+          <p className="text-xs text-gray-400">输入各渠道本月总支出，自动生成记账条目（分类标记为「其他」）</p>
+          <input type="date" value={reconcileDate} onChange={e => setReconcileDate(e.target.value)}
+            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" />
+          <input type="number" inputMode="decimal" placeholder="信用卡总支出" value={reconcileCredit}
+            onChange={e => setReconcileCredit(e.target.value)}
+            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
+          <input type="number" inputMode="decimal" placeholder="银行卡总支出" value={reconcileBank}
+            onChange={e => setReconcileBank(e.target.value)}
+            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
+          <input type="number" inputMode="decimal" placeholder="其他（美团/京东等）" value={reconcileOther}
+            onChange={e => setReconcileOther(e.target.value)}
+            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
+          <div className="flex gap-2">
+            <button onClick={handleReconcile}
+              className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加月结记录</button>
+            <button onClick={() => setShowReconcile(false)}
               className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
           </div>
         </div>
       )}
 
       {/* 记录列表 */}
-      {sorted.length === 0 && !showForm && !showCSV ? (
+      {sorted.length === 0 && !showForm && !showCSV && !showReconcile ? (
         <EmptyState icon="💳" text="还没有记账记录" />
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">

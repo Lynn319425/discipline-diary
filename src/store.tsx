@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { AppData } from './types';
+import type { AppData, DrinkRecord } from './types';
 
 const STORAGE_KEY = 'discipline-diary-data';
 
@@ -18,6 +18,7 @@ function loadData(): AppData {
         }));
       }
       if (!data.expenses) data.expenses = [];
+      if (!data.drinkRecords) data.drinkRecords = [];
       if (!data.reminderTime) data.reminderTime = null;
       if (!data.lastNotifyDate) data.lastNotifyDate = null;
       if (data.monthlyBudget === undefined) data.monthlyBudget = null;
@@ -26,7 +27,7 @@ function loadData(): AppData {
   } catch { /* ignore */ }
   return {
     savingGoals: [], annualGoals: [], dailyGoals: [], dailyRecords: [],
-    expenses: [], notes: [], reminderTime: null, lastNotifyDate: null, monthlyBudget: null,
+    expenses: [], notes: [], drinkRecords: [], reminderTime: null, lastNotifyDate: null, monthlyBudget: null,
   };
 }
 
@@ -71,6 +72,8 @@ interface StoreType {
   addNote: (content: string) => void;
   updateNote: (id: string, content: string) => void;
   deleteNote: (id: string) => void;
+  addDrinkRecord: (date: string, type: DrinkRecord['type']) => void;
+  deleteDrinkRecord: (id: string) => void;
   setReminderTime: (time: string | null) => void;
   setLastNotifyDate: (date: string | null) => void;
   setMonthlyBudget: (budget: number | null) => void;
@@ -264,6 +267,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  /* ===== 奶茶咖啡追踪 ===== */
+  const addDrinkRecord = useCallback((date: string, type: DrinkRecord['type']) => {
+    setData(d => ({
+      ...d,
+      drinkRecords: [...d.drinkRecords, { id: uid(), date, type }],
+    }));
+  }, []);
+
+  const deleteDrinkRecord = useCallback((id: string) => {
+    setData(d => ({
+      ...d,
+      drinkRecords: d.drinkRecords.filter(r => r.id !== id),
+    }));
+  }, []);
+
   /* ===== 备忘录 ===== */
   const addNote = useCallback((content: string) => {
     setData(d => ({
@@ -305,7 +323,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addAnnualSubTask, toggleAnnualSubTask, deleteAnnualSubTask, setAnnualGoalMode,
       addDailyGoal, deleteDailyGoal, toggleDailyRecord, isDailyDone,
       addExpense, deleteExpense, importExpenses,
-      addNote, updateNote, deleteNote,
+      addNote, updateNote, deleteNote, addDrinkRecord, deleteDrinkRecord,
       setReminderTime, setLastNotifyDate, setMonthlyBudget,
     }}>
       {children}

@@ -54,6 +54,12 @@ export interface ExpenseRecord {
   source: 'manual' | 'alipay' | 'wechat';
 }
 
+export interface DrinkRecord {
+  id: string;
+  date: string;
+  type: 'milk_tea' | 'coffee' | 'other';
+}
+
 export interface Note {
   id: string;
   content: string;
@@ -67,6 +73,7 @@ export interface AppData {
   dailyRecords: DailyRecord[];
   expenses: ExpenseRecord[];
   notes: Note[];
+  drinkRecords: DrinkRecord[];
   reminderTime: string | null;
   lastNotifyDate: string | null;
   monthlyBudget: number | null;
