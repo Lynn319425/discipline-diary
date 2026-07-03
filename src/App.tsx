@@ -1,22 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from './store';
 import { getSWUpdateReady } from './main';
-import type { SavingGoal, DailyRecord, DrinkRecord } from './types';
+import type { SavingGoal, DailyRecord, DrinkRecord, ExerciseRecord } from './types';
 
-const tabs = ['攒钱', '年度', '每日', '记账', '备忘录'] as const;
-const tabIcons = ['💰', '🎯', '✅', '💳', '📝'] as const;
+const tabs = ['攒钱', '年度', '自律', '备忘录'] as const;
+const tabIcons = ['💰', '🎯', '✅', '📝'] as const;
 type Tab = (typeof tabs)[number];
-
-const CATEGORIES = ['餐饮', '交通', '购物', '住房', '娱乐', '医疗', '教育', '工资', '其他'] as const;
-const CATEGORY_ICONS: Record<string, string> = {
-  '餐饮': '🍽️', '交通': '🚗', '购物': '🛍️', '住房': '🏠',
-  '娱乐': '🎮', '医疗': '🏥', '教育': '📚', '工资': '💰', '其他': '📦',
-};
 
 /* ===== App 根组件 ===== */
 export default function App() {
   const { data, setReminderTime, setLastNotifyDate } = useStore();
-  const [tab, setTab] = useState<Tab>('每日');
+  const [tab, setTab] = useState<Tab>('自律');
   const [showReminderPicker, setShowReminderPicker] = useState(false);
   const [tempReminderTime, setTempReminderTime] = useState(data.reminderTime || '21:00');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -39,7 +33,6 @@ export default function App() {
       })
       .catch(() => {});
 
-    // Check if a PWA SW update is waiting
     const apply = getSWUpdateReady();
     if (apply) {
       const ok = confirm('📲 自律日记有更新，是否立即刷新应用？');
@@ -108,7 +101,7 @@ export default function App() {
           !data.dailyRecords.some(r => r.goalId === g.id && r.date === todayStr && r.completed)
         ).length;
         if (undone > 0 && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification('自律日记', { body: `今天还有 ${undone} 个目标未完成，去打卡吧！` });
+          new Notification('自律日记', { body: `今天还有 ${undone} 项学习未完成，去打卡吧！` });
           setLastNotifyDate(todayStr);
         }
       }
@@ -119,14 +112,11 @@ export default function App() {
   }, [data.reminderTime, data.lastNotifyDate, todayStr, data.dailyGoals, data.dailyRecords, setLastNotifyDate]);
 
   const handleNotifyClick = () => {
-    // 总是在页面上显示时间选择器，不管通知权限如何
     if (data.reminderTime) {
-      // 如果已经设置了提醒，再次点击展开/收起选择器
       setShowReminderPicker(!showReminderPicker);
     } else {
       setShowReminderPicker(true);
     }
-    // 顺便尝试请求通知权限（浏览器可能拒绝，不影响提醒设置）
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
     }
@@ -198,8 +188,7 @@ export default function App() {
       <main className="flex-1 px-4 pb-4 overflow-y-auto min-h-0">
         {tab === '攒钱' && <SavingsTab />}
         {tab === '年度' && <AnnualTab />}
-        {tab === '每日' && <DailyTab />}
-        {tab === '记账' && <ExpensesTab />}
+        {tab === '自律' && <DisciplineTab />}
         {tab === '备忘录' && <NotesTab />}
       </main>
 
@@ -273,7 +262,13 @@ function getWeekStart(date: Date) {
   return d;
 }
 
-/** 日历热力图（按天显示所有目标的完成情况） */
+/** 判断是否为工作日 */
+function isWorkday(date: Date) {
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+}
+
+/* ===== 日历热力图 ===== */
 function MonthlyHeatmap({ records, dailyGoals }: { records: DailyRecord[]; dailyGoals: { id: string }[] }) {
   const now = new Date();
   const year = now.getFullYear();
@@ -285,7 +280,6 @@ function MonthlyHeatmap({ records, dailyGoals }: { records: DailyRecord[]; daily
   const totalGoals = dailyGoals.length;
   const ontime = records.filter(r => !r.late);
 
-  // Build per-day completion data
   const dayData: { day: number; pct: number }[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -467,7 +461,7 @@ function SavingsTab() {
   );
 }
 
-/* ===== 年度目标（含子任务模式） ===== */
+/* ===== 年度目标 ===== */
 function AnnualTab() {
   const { data, addAnnualGoal, deleteAnnualGoal, toggleAnnualGoal, setAnnualPercentage,
     addAnnualSubTask, toggleAnnualSubTask, deleteAnnualSubTask, setAnnualGoalMode } = useStore();
@@ -504,7 +498,6 @@ function AnnualTab() {
               className="text-gray-300 hover:text-red-400 text-xs">✕</button>
           </div>
 
-          {/* 进度条（checkbox 模式不显示） */}
           {goal.mode !== 'checkbox' && (
             <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
               <div className={`h-full rounded-full transition-all ${goal.completed ? 'bg-emerald-400' : 'bg-amber-400'}`}
@@ -512,7 +505,6 @@ function AnnualTab() {
             </div>
           )}
 
-          {/* 模式切换（已完成不显示） */}
           {!goal.completed && (
             <div className="flex items-center gap-2 mb-3">
               <div className="flex bg-gray-100 rounded-lg p-0.5 text-xs">
@@ -535,7 +527,6 @@ function AnnualTab() {
             </div>
           )}
 
-          {/* 百分比模式 */}
           {!goal.completed && goal.mode === 'percentage' && (
             <div className="flex items-center gap-3">
               <input type="range" min="0" max="100" value={goal.percentage}
@@ -545,7 +536,6 @@ function AnnualTab() {
             </div>
           )}
 
-          {/* 子任务模式 */}
           {!goal.completed && goal.mode === 'subtasks' && (
             <div className="space-y-1.5">
               {goal.subtasks.map(st => (
@@ -609,13 +599,106 @@ function AnnualTab() {
   );
 }
 
-/* ===== 每日目标 ===== */
-function DailyTab() {
-  const { data, addDailyGoal, deleteDailyGoal, toggleDailyRecord, isDailyDone } = useStore();
+/* ============================================================
+   ===== 自律面板（5 项核心自律任务） =====
+   ============================================================ */
+function DisciplineTab() {
+  const {
+    data, addDailyGoal, deleteDailyGoal, toggleDailyRecord, isDailyDone,
+    addDrinkRecord, deleteDrinkRecord,
+    addExerciseRecord, updateExerciseRecord, deleteExerciseRecord,
+    setSleepRecord, setPhoneUsage,
+  } = useStore();
+  const todayStr = today();
+  const [showMonthly, setShowMonthly] = useState(false);
+
+  const doneCount = data.dailyGoals.filter(g => isDailyDone(g.id, todayStr)).length;
+
+  return (
+    <div className="space-y-3 mt-3">
+      {/* 日期 + 本月按钮 */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-gray-400">{todayStr}</h2>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowMonthly(!showMonthly)}
+            className={`text-xs transition-colors flex items-center gap-1 ${showMonthly ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}>
+            📊 本月 <span className="text-[10px]">{showMonthly ? '▲' : '▼'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 1. 学习 Section */}
+      <LearningSection
+        dailyGoals={data.dailyGoals}
+        dailyRecords={data.dailyRecords}
+        todayStr={todayStr}
+        isDailyDone={isDailyDone}
+        toggleDailyRecord={toggleDailyRecord}
+        deleteDailyGoal={deleteDailyGoal}
+        addDailyGoal={addDailyGoal}
+        doneCount={doneCount}
+      />
+
+      {/* 2. 咖啡奶茶 Section */}
+      <DrinkTrackerSection
+        drinkRecords={data.drinkRecords}
+        addDrinkRecord={addDrinkRecord}
+        deleteDrinkRecord={deleteDrinkRecord}
+      />
+
+      {/* 3. 运动 Section */}
+      <ExerciseSection
+        exerciseRecords={data.exerciseRecords}
+        todayStr={todayStr}
+        addExerciseRecord={addExerciseRecord}
+        updateExerciseRecord={updateExerciseRecord}
+        deleteExerciseRecord={deleteExerciseRecord}
+      />
+
+      {/* 4. 睡眠 Section */}
+      <SleepSection
+        sleepRecords={data.sleepRecords}
+        todayStr={todayStr}
+        setSleepRecord={setSleepRecord}
+      />
+
+      {/* 5. 手机使用 Section */}
+      <PhoneUsageSection
+        phoneUsageRecords={data.phoneUsageRecords}
+        todayStr={todayStr}
+        setPhoneUsage={setPhoneUsage}
+      />
+
+      {/* 本月热力图 + 统计 */}
+      {showMonthly && (
+        <MonthlySection
+          dailyGoals={data.dailyGoals}
+          dailyRecords={data.dailyRecords}
+          sleepRecords={data.sleepRecords}
+          phoneUsageRecords={data.phoneUsageRecords}
+          todayStr={todayStr}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ===== 1. 学习 ===== */
+function LearningSection({
+  dailyGoals, dailyRecords, todayStr,
+  isDailyDone, toggleDailyRecord, deleteDailyGoal, addDailyGoal, doneCount,
+}: {
+  dailyGoals: { id: string; name: string; createdAt: string }[];
+  dailyRecords: DailyRecord[];
+  todayStr: string;
+  isDailyDone: (goalId: string, date: string) => boolean;
+  toggleDailyRecord: (goalId: string, date: string, late?: boolean) => void;
+  deleteDailyGoal: (id: string) => void;
+  addDailyGoal: (name: string) => void;
+  doneCount: number;
+}) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
-  const [showMonthly, setShowMonthly] = useState(false);
-  const todayStr = today();
 
   const handleAdd = () => {
     if (!name.trim()) return;
@@ -623,61 +706,33 @@ function DailyTab() {
     setName(''); setShowForm(false);
   };
 
-  const doneCount = data.dailyGoals.filter(g => isDailyDone(g.id, todayStr)).length;
-
   return (
-    <div className="space-y-3 mt-3">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-gray-400">{todayStr}</h2>
-        {data.dailyGoals.length > 0 && (
-          <div className="flex items-center gap-3">
-            <button onClick={() => setShowMonthly(!showMonthly)}
-              className={`text-xs transition-colors flex items-center gap-1 ${showMonthly ? 'text-amber-600' : 'text-gray-400 hover:text-gray-600'}`}>
-              📊 本月 <span className="text-[10px]">{showMonthly ? '▲' : '▼'}</span>
-            </button>
-            <span className="text-sm text-gray-400">{doneCount}/{data.dailyGoals.length}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-lg">📖</span>
+          <h3 className="text-sm font-medium text-gray-700">学习</h3>
+          <span className="text-xs text-gray-400">{doneCount}/{dailyGoals.length}</span>
+        </div>
+        <button onClick={() => setShowForm(!showForm)}
+          className="text-xs text-amber-600 hover:text-amber-700 transition-colors">
+          + 添加
+        </button>
       </div>
 
-      {showMonthly && data.dailyGoals.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
-          <div>
-            <p className="text-xs font-medium text-gray-400 mb-3">📊 {todayStr.slice(0, 7)} 打卡热力图</p>
-            <MonthlyHeatmap records={data.dailyRecords} dailyGoals={data.dailyGoals} />
-          </div>
-          <div className="border-t border-gray-50 pt-3 space-y-2">
-            <p className="text-xs font-medium text-gray-400">各目标完成率</p>
-            {data.dailyGoals.map(goal => {
-              const stats = calcMonthlyStats(data.dailyRecords, goal.id);
-              return (
-                <div key={goal.id} className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700 w-16 shrink-0 truncate">{goal.name}</span>
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${stats.percentage}%` }} />
-                  </div>
-                  <span className="text-xs text-gray-400 shrink-0 w-16 text-right">{stats.doneCount}/{stats.totalDays}</span>
-                  <span className="text-xs text-gray-500 shrink-0 w-8 text-right">{stats.percentage}%</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {dailyGoals.length === 0 && (
+        <p className="text-xs text-gray-400 text-center py-2">还没有学习目标，点击「+ 添加」</p>
       )}
 
-      {data.dailyGoals.length === 0 && !showForm && (
-        <EmptyState icon="✅" text="还没有每日目标，添加一个吧" />
-      )}
-
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
-        {data.dailyGoals.map(goal => {
+      <div className="divide-y divide-gray-50">
+        {dailyGoals.map(goal => {
           const done = isDailyDone(goal.id, todayStr);
-          const streak = calcStreak(data.dailyRecords, goal.id);
+          const streak = calcStreak(dailyRecords, goal.id);
           const yesterdayStr = dateToStr(new Date(Date.now() - 86400000));
-          const hasYesterday = data.dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && !r.late);
-          const hasYesterdayLate = data.dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && r.late);
+          const hasYesterday = dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && !r.late);
+          const hasYesterdayLate = dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && r.late);
           return (
-            <div key={goal.id} className="flex items-center gap-3 px-4 py-3">
+            <div key={goal.id} className="flex items-center gap-3 py-2">
               <button onClick={() => toggleDailyRecord(goal.id, todayStr)}
                 className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 transition-all ${done ? 'bg-emerald-500 text-white' : 'border-2 border-gray-300'}`}>
                 {done && '✓'}
@@ -699,57 +754,44 @@ function DailyTab() {
         })}
       </div>
 
-      {/* 奶茶咖啡追踪 */}
-      <DrinkTrackerSection />
-
       {showForm && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2">
-          <input placeholder="习惯名称，如：健身30分钟" value={name} onChange={e => setName(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
-          <div className="flex gap-2">
-            <button onClick={handleAdd}
-              className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加</button>
-            <button onClick={() => setShowForm(false)}
-              className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
-          </div>
+        <div className="pt-2 flex gap-2">
+          <input placeholder="习惯名称，如：背单词20个" value={name} onChange={e => setName(e.target.value)}
+            className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
+          <button onClick={handleAdd}
+            className="px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加</button>
         </div>
-      )}
-
-      {!showForm && (
-        <button onClick={() => setShowForm(true)}
-          className="w-full py-3 text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-xl hover:border-gray-300 hover:text-gray-500 transition-colors">
-          + 添加每日目标
-        </button>
       )}
     </div>
   );
 }
 
-/* ===== 奶茶咖啡追踪（每日 tab 副区） ===== */
-function DrinkTrackerSection() {
-  const { data, addDrinkRecord, deleteDrinkRecord } = useStore();
+/* ===== 2. 奶茶咖啡追踪 ===== */
+function DrinkTrackerSection({
+  drinkRecords, addDrinkRecord, deleteDrinkRecord,
+}: {
+  drinkRecords: DrinkRecord[];
+  addDrinkRecord: (date: string, type: DrinkRecord['type']) => void;
+  deleteDrinkRecord: (id: string) => void;
+}) {
   const LIMIT = 2;
 
-  // 本周日期
-  const today = new Date();
-  const weekStart = getWeekStart(today);
+  const t = new Date();
+  const weekStart = getWeekStart(t);
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
     return d;
   });
-
   const dayNames = ['一', '二', '三', '四', '五', '六', '日'];
   const weekEnd = new Date(weekDays[6]);
   weekEnd.setHours(23, 59, 59, 999);
 
-  // 过滤本周记录
-  const weekRecords = data.drinkRecords.filter(r => {
+  const weekRecords = drinkRecords.filter(r => {
     const rd = new Date(r.date);
     return rd >= weekStart && rd <= weekEnd;
   });
 
-  // 按日期分组
   const dayMap: Record<string, DrinkRecord[]> = {};
   weekRecords.forEach(r => {
     if (!dayMap[r.date]) dayMap[r.date] = [];
@@ -757,20 +799,18 @@ function DrinkTrackerSection() {
   });
 
   const weekCount = weekRecords.length;
-  const todayStr = dateToStr(today);
+  const todayStr = dateToStr(t);
 
-  // 一天中是否已有记录
   const getDayRecords = (d: Date) => dayMap[dateToStr(d)] || [];
   const isTodayFn = (d: Date) => dateToStr(d) === todayStr;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-700">🧋 奶茶咖啡追踪</h3>
+        <h3 className="text-sm font-medium text-gray-700">🧋 咖啡奶茶</h3>
         <span className="text-xs text-gray-400">每周 ≤ {LIMIT} 杯</span>
       </div>
 
-      {/* 周一到周日的日期块 */}
       <div className="flex gap-1.5">
         {weekDays.map((d, i) => {
           const records = getDayRecords(d);
@@ -793,7 +833,6 @@ function DrinkTrackerSection() {
         })}
       </div>
 
-      {/* 进度 */}
       <div className="space-y-1">
         <div className="flex justify-between text-xs">
           <span className={weekCount > LIMIT ? 'text-orange-600 font-medium' : 'text-gray-500'}>
@@ -818,7 +857,6 @@ function DrinkTrackerSection() {
         </div>
       </div>
 
-      {/* 本周记录列表 */}
       {weekRecords.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {weekRecords.sort((a, b) => b.date.localeCompare(a.date)).map(r => (
@@ -833,18 +871,15 @@ function DrinkTrackerSection() {
         </div>
       )}
 
-      {/* 添加按钮 */}
       <div className="flex gap-2">
         <button onClick={() => addDrinkRecord(todayStr, 'milk_tea')}
           className="flex-1 py-2 text-xs font-medium rounded-lg transition-colors
-            bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200
-            active:scale-95">
+            bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 active:scale-95">
           🧋 奶茶
         </button>
         <button onClick={() => addDrinkRecord(todayStr, 'coffee')}
           className="flex-1 py-2 text-xs font-medium rounded-lg transition-colors
-            bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200
-            active:scale-95">
+            bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 active:scale-95">
           ☕ 咖啡
         </button>
       </div>
@@ -852,340 +887,346 @@ function DrinkTrackerSection() {
   );
 }
 
-/* ===== 记账 ===== */
-function ExpensesTab() {
-  const { data, addExpense, deleteExpense, importExpenses, setMonthlyBudget } = useStore();
-  const [showForm, setShowForm] = useState(false);
-  const [showCSV, setShowCSV] = useState(false);
-  const [csvText, setCsvText] = useState('');
-  const [dragOver, setDragOver] = useState(false);
-  const [showBudgetInput, setShowBudgetInput] = useState(false);
-  const [budgetInput, setBudgetInput] = useState('');
-  const csvFileRef = useRef<HTMLInputElement>(null);
-
-  const [showReconcile, setShowReconcile] = useState(false);
-  const [reconcileDate, setReconcileDate] = useState(today());
-  const [reconcileCredit, setReconcileCredit] = useState('');
-  const [reconcileBank, setReconcileBank] = useState('');
-  const [reconcileOther, setReconcileOther] = useState('');
-
-  const [formDate, setFormDate] = useState(today());
-  const [formAmount, setFormAmount] = useState('');
-  const [formCategory, setFormCategory] = useState('餐饮');
-  const [formNote, setFormNote] = useState('');
-  const [formType, setFormType] = useState<'expense' | 'income'>('expense');
-
-  const monthPrefix = today().slice(0, 7);
-  const monthExpenses = data.expenses.filter(e => e.date.startsWith(monthPrefix));
-  const totalIncome = monthExpenses.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-  const totalExpense = monthExpenses.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
-  const budget = data.monthlyBudget;
-  const budgetRemaining = budget !== null ? Math.max(0, budget - totalExpense) : null;
-  const budgetUsed = budget !== null && budget > 0 ? (totalExpense / budget) * 100 : 0;
-
-  const catMap = new Map<string, number>();
-  monthExpenses.filter(e => e.type === 'expense').forEach(e => {
-    catMap.set(e.category, (catMap.get(e.category) || 0) + e.amount);
-  });
-  const catTotals = [...catMap.entries()]
-    .map(([name, total]) => ({ name, total }))
-    .sort((a, b) => b.total - a.total);
-
-  const sorted = [...data.expenses].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+/* ===== 3. 运动记录 ===== */
+function ExerciseSection({
+  exerciseRecords, todayStr, addExerciseRecord, updateExerciseRecord, deleteExerciseRecord,
+}: {
+  exerciseRecords: ExerciseRecord[];
+  todayStr: string;
+  addExerciseRecord: (date: string, content: string) => void;
+  updateExerciseRecord: (id: string, content: string) => void;
+  deleteExerciseRecord: (id: string) => void;
+}) {
+  const [input, setInput] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
 
   const handleAdd = () => {
-    if (!formAmount.trim() || Number(formAmount) <= 0) return;
-    addExpense(formDate, Number(formAmount), formCategory, formNote.trim(), formType);
-    setFormAmount(''); setFormNote(''); setShowForm(false);
-    setFormType('expense');
+    if (!input.trim()) return;
+    addExerciseRecord(todayStr, input.trim());
+    setInput('');
   };
 
-  const handleCSVImport = (text?: string) => {
-    const records = parseCSV(text ?? csvText);
-    if (records.length === 0) {
-      alert('未能识别出有效记录，请确认 CSV 格式正确（支持支付宝/微信导出格式）');
-      return;
-    }
-    importExpenses(records);
-    setCsvText('');
-    setShowCSV(false);
+  const handleEdit = (id: string) => {
+    if (!editText.trim()) return;
+    updateExerciseRecord(id, editText.trim());
+    setEditingId(null); setEditText('');
   };
 
-  const handleCSVFile = (file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      alert('请选择 CSV 文件');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = reader.result as string;
-      setCsvText(text);
-      // 自动解析导入
-      handleCSVImport(text);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleCSVFile(file);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleCSVFile(file);
-    e.target.value = '';
-  };
-
-  const handleReconcile = () => {
-    let count = 0;
-    if (reconcileCredit.trim() && Number(reconcileCredit) > 0) {
-      addExpense(reconcileDate, Number(reconcileCredit), '其他', '信用卡月结', 'expense');
-      count++;
-    }
-    if (reconcileBank.trim() && Number(reconcileBank) > 0) {
-      addExpense(reconcileDate, Number(reconcileBank), '其他', '银行卡月结', 'expense');
-      count++;
-    }
-    if (reconcileOther.trim() && Number(reconcileOther) > 0) {
-      addExpense(reconcileDate, Number(reconcileOther), '其他', '其他月结', 'expense');
-      count++;
-    }
-    if (count > 0) {
-      setReconcileCredit(''); setReconcileBank(''); setReconcileOther('');
-      setShowReconcile(false);
-    }
-  };
+  const todayExercises = exerciseRecords.filter(r => r.date === todayStr);
+  const todayCount = todayExercises.length;
 
   return (
-    <div className="space-y-3 mt-3">
-      {/* 月度汇总 */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-        <p className="text-xs font-medium text-gray-400 mb-3">📊 {monthPrefix} 月账单</p>
-        <div className="grid grid-cols-2 gap-2 text-center mb-3">
-          <div className="bg-red-50 rounded-xl py-2">
-            <p className="text-xs text-red-400">支出</p>
-            <p className="text-lg font-bold text-red-500">¥{totalExpense.toLocaleString()}</p>
-          </div>
-          <div className="bg-emerald-50 rounded-xl py-2">
-            <p className="text-xs text-emerald-400">收入</p>
-            <p className="text-lg font-bold text-emerald-500">¥{totalIncome.toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* 每月限额 */}
-        {budget !== null ? (
-          <div className="bg-amber-50 rounded-xl p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-amber-700 font-medium">🎯 月限额</span>
-                <span className="text-sm font-bold text-amber-800">¥{budget.toLocaleString()}</span>
-              </div>
-              <button onClick={() => { setBudgetInput(String(budget)); setShowBudgetInput(true); }}
-                className="text-[10px] text-amber-500 hover:text-amber-700">修改</button>
-            </div>
-            <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${budgetUsed >= 100 ? 'bg-red-400' : budgetUsed >= 80 ? 'bg-orange-400' : 'bg-emerald-400'}`}
-                style={{ width: `${Math.min(100, budgetUsed)}%` }} />
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-amber-600">已用 ¥{totalExpense.toLocaleString()}</span>
-              <span className={`font-medium ${budgetRemaining !== null && budgetRemaining > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                🐷 存款 ¥{budgetRemaining?.toLocaleString() || '0'}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <button onClick={() => setShowBudgetInput(true)}
-            className="w-full py-2 text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl hover:border-gray-300 hover:text-gray-500 transition-colors">
-            📏 设置每月消费限额
-          </button>
-        )}
-
-        {showBudgetInput && (
-          <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-2">
-            <p className="text-xs text-gray-500">每月消费限额（仅统计支出）</p>
-            <div className="flex gap-2">
-              <input type="number" inputMode="decimal" placeholder="输入月限额" value={budgetInput}
-                onChange={e => setBudgetInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400"
-                autoFocus />
-              <button onClick={() => {
-                if (budgetInput.trim() && Number(budgetInput) > 0) {
-                  setMonthlyBudget(Number(budgetInput));
-                  setShowBudgetInput(false);
-                }
-              }}
-                className="px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">确认</button>
-              <button onClick={() => { setShowBudgetInput(false); if (budget === null) setBudgetInput(''); }}
-                className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700">取消</button>
-            </div>
-            {budget !== null && (
-              <button onClick={() => { setMonthlyBudget(null); setShowBudgetInput(false); }}
-                className="text-xs text-red-400 hover:text-red-600">删除限额</button>
-            )}
-          </div>
-        )}
-        {totalExpense > 0 && catTotals.length > 0 && (
-          <div className="space-y-1.5">
-            {catTotals.map(({ name, total }) => (
-              <div key={name} className="flex items-center gap-2 text-xs">
-                <span className="w-4 shrink-0 text-center">{CATEGORY_ICONS[name] || '📦'}</span>
-                <span className="w-6 text-gray-500">{name}</span>
-                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-amber-400 rounded-full transition-all"
-                    style={{ width: `${(total / totalExpense) * 100}%` }} />
-                </div>
-                <span className="w-14 text-right text-gray-400 shrink-0">¥{total}</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {monthExpenses.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-1">本月暂无记录</p>
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-700">🏋️ 运动记录</h3>
+        {todayCount > 0 && (
+          <span className="text-xs text-gray-400">今日 {todayCount} 条</span>
         )}
       </div>
 
-      {/* 操作按钮 */}
-      <div className="grid grid-cols-3 gap-2">
-        <button onClick={() => setShowForm(true)}
-          className="py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors">
-          ✏️ 记账
-        </button>
-        <button onClick={() => setShowCSV(true)}
-          className="py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-          📄 CSV
-        </button>
-        <button onClick={() => setShowReconcile(true)}
-          className="py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-          📦 月结
-        </button>
+      {/* 添加 */}
+      <div className="flex gap-2">
+        <input placeholder="如：周六 费教练臀腿" value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+          className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
+        <button onClick={handleAdd}
+          className="px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">保存</button>
       </div>
 
-      {/* 手动记账表单 */}
-      {showForm && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
-          <div className="flex gap-2">
-            <button onClick={() => setFormType('expense')}
-              className={`flex-1 py-1.5 text-sm rounded-lg font-medium transition-colors ${formType === 'expense' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'}`}>支出</button>
-            <button onClick={() => setFormType('income')}
-              className={`flex-1 py-1.5 text-sm rounded-lg font-medium transition-colors ${formType === 'income' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-500'}`}>收入</button>
-          </div>
-          <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" />
-          <input type="number" inputMode="decimal" placeholder="金额" value={formAmount}
-            onChange={e => setFormAmount(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
-          <div className="flex flex-wrap gap-1.5">
-            {CATEGORIES.map(c => (
-              <button key={c} onClick={() => setFormCategory(c)}
-                className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${formCategory === c ? 'bg-amber-100 text-amber-800 font-medium' : 'bg-gray-100 text-gray-500'}`}>
-                {CATEGORY_ICONS[c]} {c}
-              </button>
-            ))}
-          </div>
-          <input placeholder="备注（可选）" value={formNote} onChange={e => setFormNote(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
-          <div className="flex gap-2">
-            <button onClick={handleAdd}
-              className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">保存</button>
-            <button onClick={() => setShowForm(false)}
-              className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
-          </div>
-        </div>
-      )}
-
-      {/* CSV 导入 */}
-      {showCSV && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
-          <p className="text-xs font-medium text-gray-400">📄 导入 CSV 账单</p>
-          <p className="text-xs text-gray-400">支持支付宝 / 微信导出 CSV 文件</p>
-
-          {/* 拖拽区 / 文件选择 */}
-          <div
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleFileDrop}
-            onClick={() => csvFileRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors
-              ${dragOver ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-amber-300 hover:bg-gray-50'}`}>
-            <p className="text-sm text-gray-400">{dragOver ? '📄 松开导入' : '📄 拖拽 CSV 文件到此处'}</p>
-            <p className="text-xs text-gray-300 mt-1">或点击选择文件</p>
-          </div>
-          <input ref={csvFileRef} type="file" accept=".csv" className="hidden" onChange={handleFileSelect} />
-
-          {/* 手动粘贴备选 */}
-          <details className="text-xs">
-            <summary className="text-gray-400 cursor-pointer hover:text-gray-600 select-none">或手动粘贴 CSV 文本</summary>
-            <textarea placeholder="粘贴 CSV 内容……" value={csvText} onChange={e => setCsvText(e.target.value)}
-              rows={4}
-              className="w-full mt-2 px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 font-mono resize-none" />
-            <button onClick={() => handleCSVImport()}
-              className="mt-2 w-full py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors"
-              disabled={!csvText.trim()}>解析并导入</button>
-          </details>
-
-          <button onClick={() => setShowCSV(false)}
-            className="text-xs text-gray-400 hover:text-gray-600">取消</button>
-        </div>
-      )}
-
-      {/* 快速月结 */}
-      {showReconcile && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
-          <p className="text-xs font-medium text-gray-400">📦 快速月结</p>
-          <p className="text-xs text-gray-400">输入各渠道本月总支出，自动生成记账条目（分类标记为「其他」）</p>
-          <input type="date" value={reconcileDate} onChange={e => setReconcileDate(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300" />
-          <input type="number" inputMode="decimal" placeholder="信用卡总支出" value={reconcileCredit}
-            onChange={e => setReconcileCredit(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
-          <input type="number" inputMode="decimal" placeholder="银行卡总支出" value={reconcileBank}
-            onChange={e => setReconcileBank(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
-          <input type="number" inputMode="decimal" placeholder="其他（美团/京东等）" value={reconcileOther}
-            onChange={e => setReconcileOther(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
-          <div className="flex gap-2">
-            <button onClick={handleReconcile}
-              className="flex-1 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加月结记录</button>
-            <button onClick={() => setShowReconcile(false)}
-              className="py-2 px-4 text-sm text-gray-500 hover:text-gray-700 transition-colors">取消</button>
-          </div>
-        </div>
-      )}
-
-      {/* 记录列表 */}
-      {sorted.length === 0 && !showForm && !showCSV && !showReconcile ? (
-        <EmptyState icon="💳" text="还没有记账记录" />
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50">
-          {sorted.map(e => (
-            <div key={e.id} className="flex items-center gap-3 px-4 py-3">
-              <span className="text-lg shrink-0">{CATEGORY_ICONS[e.category] || '📦'}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-gray-900 truncate">{e.note || e.category}</span>
-                  <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">{e.category}</span>
-                  {e.source !== 'manual' && (
-                    <span className={`text-[10px] shrink-0 ${e.source === 'alipay' ? 'text-blue-500' : 'text-green-500'}`}>
-                      {e.source === 'alipay' ? '支付宝' : '微信'}
-                    </span>
-                  )}
+      {/* 今日记录列表 */}
+      {todayExercises.length > 0 && (
+        <div className="space-y-1.5">
+          {todayExercises.map(r => (
+            <div key={r.id}>
+              {editingId === r.id ? (
+                <div className="flex gap-2">
+                  <input value={editText} onChange={e => setEditText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleEdit(r.id); }}
+                    className="flex-1 px-3 py-1.5 text-sm bg-gray-50 border border-amber-300 rounded-lg focus:outline-none placeholder:text-gray-400" autoFocus />
+                  <button onClick={() => handleEdit(r.id)}
+                    className="text-xs text-amber-600 font-medium">保存</button>
+                  <button onClick={() => setEditingId(null)}
+                    className="text-xs text-gray-400">取消</button>
                 </div>
-                <p className="text-xs text-gray-400">{e.date.slice(5)}</p>
-              </div>
-              <span className={`text-sm font-medium shrink-0 ${e.type === 'expense' ? 'text-red-500' : 'text-emerald-500'}`}>
-                {e.type === 'expense' ? '-' : '+'}¥{e.amount.toLocaleString()}
-              </span>
-              <button onClick={() => { if (confirm('删除这条？')) deleteExpense(e.id); }}
-                className="text-gray-300 hover:text-red-400 text-xs shrink-0">✕</button>
+              ) : (
+                <div className="flex items-center gap-2 px-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <span className="flex-1 text-sm text-gray-700">{r.content}</span>
+                  <button onClick={() => { setEditingId(r.id); setEditText(r.content); }}
+                    className="text-xs text-gray-400 hover:text-amber-500 transition-colors">✏️</button>
+                  <button onClick={() => deleteExerciseRecord(r.id)}
+                    className="text-xs text-gray-300 hover:text-red-400 transition-colors">✕</button>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
+
+      {todayExercises.length === 0 && (
+        <p className="text-xs text-gray-400 text-center py-2">今日还没有运动记录</p>
+      )}
+    </div>
+  );
+}
+
+/* ===== 4. 睡眠记录 ===== */
+function SleepSection({
+  sleepRecords, todayStr, setSleepRecord,
+}: {
+  sleepRecords: { date: string; hours: number }[];
+  todayStr: string;
+  setSleepRecord: (date: string, hours: number) => void;
+}) {
+  const todaySleep = sleepRecords.find(r => r.date === todayStr);
+  const hours = todaySleep?.hours ?? 7; // default 7h
+  const [displayHours, setDisplayHours] = useState(hours);
+
+  // Sync displayHours when todaySleep changes
+  useEffect(() => {
+    setDisplayHours(todaySleep?.hours ?? 7);
+  }, [todaySleep?.hours]);
+
+  const isGood = displayHours >= 8;
+  const isSet = todaySleep !== undefined;
+
+  const handleChange = (delta: number) => {
+    const newVal = Math.max(0, Math.min(24, displayHours + delta));
+    setDisplayHours(newVal);
+    setSleepRecord(todayStr, newVal);
+  };
+
+  // 近 7 天趋势
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return dateToStr(d);
+  });
+
+  const chartData = last7Days.map(ds => {
+    const rec = sleepRecords.find(r => r.date === ds);
+    return { date: ds, hours: rec?.hours ?? 0, exist: !!rec };
+  });
+
+  const maxHours = 12; // chart max
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+      <h3 className="text-sm font-medium text-gray-700">😴 睡眠记录</h3>
+
+      {/* 今日睡眠输入 */}
+      <div className="flex items-center justify-center gap-4 py-2">
+        <button onClick={() => handleChange(-0.5)}
+          className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm text-gray-600 hover:bg-gray-200 transition-colors">−</button>
+        <div className="text-center">
+          <span className={`text-3xl font-bold ${isSet && !isGood ? 'text-orange-500' : isGood ? 'text-emerald-500' : 'text-gray-400'}`}>
+            {displayHours}
+          </span>
+          <span className="text-sm text-gray-400 ml-1">h</span>
+          <div className="text-xs mt-0.5">
+            {!isSet ? (
+              <span className="text-gray-400">点击 ± 设置今日睡眠</span>
+            ) : isGood ? (
+              <span className="text-emerald-500">✅ 大于 8h，达标！</span>
+            ) : (
+              <span className="text-orange-500">❌ {displayHours}h，需大于 8h</span>
+            )}
+          </div>
+        </div>
+        <button onClick={() => handleChange(0.5)}
+          className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm text-gray-600 hover:bg-gray-200 transition-colors">+</button>
+      </div>
+
+      {/* 近 7 天趋势图 */}
+      <div>
+        <p className="text-xs text-gray-400 mb-2">近 7 天趋势</p>
+        <div className="flex items-end gap-2 h-24">
+          {chartData.map((d, i) => {
+            const pct = d.hours > 0 ? (d.hours / maxHours) * 100 : 0;
+            const isToday = i === 6;
+            return (
+              <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                <div className="relative w-full flex items-end justify-center">
+                  {/* 8h 参考线 */}
+                  <div
+                    className="absolute bottom-0 w-full border-t border-dashed border-red-200"
+                    style={{ height: `${(8 / maxHours) * 100}%` }}
+                  />
+                  {/* 柱子 */}
+                  <div
+                    className={`w-full rounded-t-sm ${d.hours === 0 ? 'bg-gray-100' : d.hours >= 8 ? 'bg-emerald-400' : 'bg-orange-400'} ${isToday ? 'opacity-100' : 'opacity-70'}`}
+                    style={{ height: `${pct}%`, minHeight: d.hours > 0 ? '4px' : '2px' }}
+                  />
+                </div>
+                <span className={`text-[10px] ${isToday ? 'text-gray-600 font-medium' : 'text-gray-400'}`}>
+                  {d.hours > 0 ? `${d.hours}h` : ''}
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  {['日', '一', '二', '三', '四', '五', '六'][new Date(d.date).getDay()]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-400">
+          <span className="text-red-300">- -</span>
+          <span>8h 达标线</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== 5. 手机使用时长 ===== */
+function PhoneUsageSection({
+  phoneUsageRecords, todayStr, setPhoneUsage,
+}: {
+  phoneUsageRecords: { date: string; compliant: boolean }[];
+  todayStr: string;
+  setPhoneUsage: (date: string, compliant: boolean) => void;
+}) {
+  const t = new Date();
+  const workday = isWorkday(t);
+  const standard = workday ? '< 8h' : '< 10h';
+  const label = workday ? '工作日' : '非工作日';
+  const todayRecord = phoneUsageRecords.find(r => r.date === todayStr);
+
+  // 本月达标率
+  const monthPrefix = todayStr.slice(0, 7);
+  const monthRecords = phoneUsageRecords.filter(r => r.date.startsWith(monthPrefix));
+  const monthCompliant = monthRecords.filter(r => r.compliant).length;
+  const monthRate = monthRecords.length > 0 ? Math.round((monthCompliant / monthRecords.length) * 100) : 0;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+      <h3 className="text-sm font-medium text-gray-700">📱 手机使用时长</h3>
+
+      <div className="text-center">
+        <p className="text-xs text-gray-400 mb-2">今日（{label}）标准 {standard}</p>
+        {todayRecord === undefined ? (
+          <div className="flex gap-3 justify-center">
+            <button onClick={() => setPhoneUsage(todayStr, true)}
+              className="px-6 py-2 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 active:scale-95 transition-all">
+              ✅ 达标
+            </button>
+            <button onClick={() => setPhoneUsage(todayStr, false)}
+              className="px-6 py-2 text-sm font-medium rounded-lg bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 active:scale-95 transition-all">
+              ❌ 未达标
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {todayRecord.compliant ? (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="text-lg">✅</span>
+                <span className="font-medium">今日达标</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-50 text-orange-700 border border-orange-200">
+                  <span className="text-lg">❌</span>
+                  <span className="font-medium">今日未达标</span>
+                </div>
+              </div>
+            )}
+            <div>
+              <button onClick={() => setPhoneUsage(todayStr, !todayRecord.compliant)}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                点此切换
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {monthRecords.length > 0 && (
+        <div className="flex items-center gap-2 pt-1">
+          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${monthRate >= 80 ? 'bg-emerald-400' : monthRate >= 50 ? 'bg-amber-400' : 'bg-orange-400'}`}
+              style={{ width: `${monthRate}%` }} />
+          </div>
+          <span className="text-xs text-gray-400 shrink-0">本月达标 {monthCompliant}/{monthRecords.length} ({monthRate}%)</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== 本月汇总 ===== */
+function MonthlySection({
+  dailyGoals, dailyRecords, sleepRecords, phoneUsageRecords, todayStr,
+}: {
+  dailyGoals: { id: string; name: string }[];
+  dailyRecords: DailyRecord[];
+  sleepRecords: { date: string; hours: number }[];
+  phoneUsageRecords: { date: string; compliant: boolean }[];
+  todayStr: string;
+}) {
+  const monthLabel = todayStr.slice(0, 7);
+  const monthPrefix = monthLabel;
+
+  // 学习统计
+  const monthSleepRecords = sleepRecords.filter(r => r.date.startsWith(monthPrefix));
+  const avgSleep = monthSleepRecords.length > 0
+    ? (monthSleepRecords.reduce((s, r) => s + r.hours, 0) / monthSleepRecords.length)
+    : 0;
+
+  const monthPhoneRecords = phoneUsageRecords.filter(r => r.date.startsWith(monthPrefix));
+  const phoneRate = monthPhoneRecords.length > 0
+    ? Math.round((monthPhoneRecords.filter(r => r.compliant).length / monthPhoneRecords.length) * 100)
+    : 0;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
+      <p className="text-xs font-medium text-gray-400">📊 {monthLabel} 月度汇总</p>
+
+      {/* 学习热力图 */}
+      {dailyGoals.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-400 mb-3">📖 学习热力图</p>
+          <MonthlyHeatmap records={dailyRecords} dailyGoals={dailyGoals} />
+        </div>
+      )}
+
+      {/* 各学习目标完成率 */}
+      {dailyGoals.length > 0 && (
+        <div className="border-t border-gray-50 pt-3 space-y-2">
+          <p className="text-xs font-medium text-gray-400">📖 学习完成率</p>
+          {dailyGoals.map(goal => {
+            const stats = calcMonthlyStats(dailyRecords, goal.id);
+            return (
+              <div key={goal.id} className="flex items-center gap-2">
+                <span className="text-sm text-gray-700 w-16 shrink-0 truncate">{goal.name}</span>
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${stats.percentage}%` }} />
+                </div>
+                <span className="text-xs text-gray-400 shrink-0 w-16 text-right">{stats.doneCount}/{stats.totalDays}</span>
+                <span className="text-xs text-gray-500 shrink-0 w-8 text-right">{stats.percentage}%</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 其他汇总 */}
+      <div className="border-t border-gray-50 pt-3 grid grid-cols-2 gap-3">
+        <div className="bg-gray-50 rounded-xl p-3 text-center">
+          <p className="text-xs text-gray-400">😴 平均睡眠</p>
+          <p className={`text-lg font-bold ${avgSleep >= 8 ? 'text-emerald-500' : 'text-orange-500'}`}>
+            {avgSleep > 0 ? `${avgSleep.toFixed(1)}h` : '—'}
+          </p>
+          <p className="text-[10px] text-gray-400">记录 {monthSleepRecords.length} 天</p>
+        </div>
+        <div className="bg-gray-50 rounded-xl p-3 text-center">
+          <p className="text-xs text-gray-400">📱 手机达标率</p>
+          <p className={`text-lg font-bold ${phoneRate >= 80 ? 'text-emerald-500' : phoneRate >= 50 ? 'text-amber-500' : 'text-orange-500'}`}>
+            {monthPhoneRecords.length > 0 ? `${phoneRate}%` : '—'}
+          </p>
+          <p className="text-[10px] text-gray-400">记录 {monthPhoneRecords.length} 天</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1270,40 +1311,6 @@ function NotesTab() {
       )}
     </div>
   );
-}
-
-/* ===== CSV 解析器 ===== */
-function parseCSV(text: string): Array<{
-  date: string; amount: number; category: string;
-  note: string; type: 'expense' | 'income'; source: 'alipay' | 'wechat';
-}> {
-  const lines = text.trim().split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  const header = lines[0];
-  const isAlipay = header.includes('交易分类');
-  const isWechat = !isAlipay && header.includes('交易类型');
-  if (!isAlipay && !isWechat) return [];
-
-  return lines.slice(1).map(line => {
-    const cols = line.split(',');
-    if (isAlipay) {
-      const dateRaw = (cols[0] || '').trim();
-      const date = dateRaw.split(' ')[0].replace(/\//g, '-');
-      const category = cols[1]?.trim() || '其他';
-      const type: 'expense' | 'income' = cols[4]?.trim() === '支出' ? 'expense' : 'income';
-      const amount = Math.abs(parseFloat(cols[5]?.trim() || '0'));
-      const note = cols[3]?.trim() || cols[2]?.trim() || '';
-      return { date, amount, category, note, type, source: 'alipay' as const };
-    } else {
-      const dateRaw = (cols[0] || '').trim();
-      const date = dateRaw.split(' ')[0].replace(/\//g, '-');
-      const category = cols[1]?.trim() || '其他';
-      const type: 'expense' | 'income' = cols[4]?.trim() === '支出' ? 'expense' : 'income';
-      const amount = Math.abs(parseFloat(cols[5]?.trim() || '0'));
-      const note = cols[3]?.trim() || cols[2]?.trim() || '';
-      return { date, amount, category, note, type, source: 'wechat' as const };
-    }
-  }).filter(r => r.amount > 0 && r.date.length === 10);
 }
 
 /* ===== 共享组件 ===== */

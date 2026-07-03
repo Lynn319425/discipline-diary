@@ -17,17 +17,23 @@ function loadData(): AppData {
           subtasks: g.subtasks || [],
         }));
       }
-      if (!data.expenses) data.expenses = [];
+      // Add new fields with defaults
       if (!data.drinkRecords) data.drinkRecords = [];
+      if (!data.exerciseRecords) data.exerciseRecords = [];
+      if (!data.sleepRecords) data.sleepRecords = [];
+      if (!data.phoneUsageRecords) data.phoneUsageRecords = [];
       if (!data.reminderTime) data.reminderTime = null;
       if (!data.lastNotifyDate) data.lastNotifyDate = null;
-      if (data.monthlyBudget === undefined) data.monthlyBudget = null;
+      // Remove old fields
+      delete data.expenses;
+      delete data.monthlyBudget;
       return data;
     }
   } catch { /* ignore */ }
   return {
     savingGoals: [], annualGoals: [], dailyGoals: [], dailyRecords: [],
-    expenses: [], notes: [], drinkRecords: [], reminderTime: null, lastNotifyDate: null, monthlyBudget: null,
+    drinkRecords: [], exerciseRecords: [], sleepRecords: [], phoneUsageRecords: [],
+    notes: [], reminderTime: null, lastNotifyDate: null,
   };
 }
 
@@ -50,10 +56,12 @@ function now() {
 
 interface StoreType {
   data: AppData;
+  /* 攒钱目标 */
   addSavingGoal: (name: string, targetAmount: number) => void;
   deleteSavingGoal: (id: string) => void;
   addSavingRecord: (goalId: string, amount: number, note: string) => void;
   deleteSavingRecord: (goalId: string, recordId: string) => void;
+  /* 年度目标 */
   addAnnualGoal: (name: string) => void;
   deleteAnnualGoal: (id: string) => void;
   toggleAnnualGoal: (id: string) => void;
@@ -62,21 +70,29 @@ interface StoreType {
   toggleAnnualSubTask: (goalId: string, subTaskId: string) => void;
   deleteAnnualSubTask: (goalId: string, subTaskId: string) => void;
   setAnnualGoalMode: (goalId: string, mode: 'percentage' | 'subtasks' | 'checkbox') => void;
+  /* 每日目标（学习打卡） */
   addDailyGoal: (name: string) => void;
   deleteDailyGoal: (id: string) => void;
   toggleDailyRecord: (goalId: string, date: string, late?: boolean) => void;
   isDailyDone: (goalId: string, date: string) => boolean;
-  addExpense: (date: string, amount: number, category: string, note: string, type: 'expense' | 'income', source?: 'manual' | 'alipay' | 'wechat') => void;
-  deleteExpense: (id: string) => void;
-  importExpenses: (records: Array<{ date: string; amount: number; category: string; note: string; type: 'expense' | 'income'; source: 'manual' | 'alipay' | 'wechat' }>) => void;
+  /* 咖啡奶茶 */
+  addDrinkRecord: (date: string, type: DrinkRecord['type']) => void;
+  deleteDrinkRecord: (id: string) => void;
+  /* 运动记录 */
+  addExerciseRecord: (date: string, content: string) => void;
+  updateExerciseRecord: (id: string, content: string) => void;
+  deleteExerciseRecord: (id: string) => void;
+  /* 睡眠记录 */
+  setSleepRecord: (date: string, hours: number) => void;
+  /* 手机使用时长 */
+  setPhoneUsage: (date: string, compliant: boolean) => void;
+  /* 备忘录 */
   addNote: (content: string) => void;
   updateNote: (id: string, content: string) => void;
   deleteNote: (id: string) => void;
-  addDrinkRecord: (date: string, type: DrinkRecord['type']) => void;
-  deleteDrinkRecord: (id: string) => void;
+  /* 提醒 */
   setReminderTime: (time: string | null) => void;
   setLastNotifyDate: (date: string | null) => void;
-  setMonthlyBudget: (budget: number | null) => void;
 }
 
 const StoreContext = createContext<StoreType | null>(null);
@@ -213,7 +229,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  /* ===== 每日目标 ===== */
+  /* ===== 每日目标（学习打卡） ===== */
   const addDailyGoal = useCallback((name: string) => {
     setData(d => ({
       ...d,
@@ -243,30 +259,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data.dailyRecords.some(r => r.goalId === goalId && r.date === date && r.completed);
   }, [data.dailyRecords]);
 
-  /* ===== 记账 ===== */
-  const addExpense = useCallback((
-    date: string, amount: number, category: string, note: string,
-    type: 'expense' | 'income', source: 'manual' | 'alipay' | 'wechat' = 'manual',
-  ) => {
-    setData(d => ({
-      ...d,
-      expenses: [{ id: uid(), date, amount, category, note, type, source }, ...d.expenses],
-    }));
-  }, []);
-
-  const deleteExpense = useCallback((id: string) => {
-    setData(d => ({ ...d, expenses: d.expenses.filter(e => e.id !== id) }));
-  }, []);
-
-  const importExpenses = useCallback((
-    records: Array<{ date: string; amount: number; category: string; note: string; type: 'expense' | 'income'; source: 'manual' | 'alipay' | 'wechat' }>,
-  ) => {
-    setData(d => ({
-      ...d,
-      expenses: [...records.map(r => ({ ...r, id: uid() })), ...d.expenses],
-    }));
-  }, []);
-
   /* ===== 奶茶咖啡追踪 ===== */
   const addDrinkRecord = useCallback((date: string, type: DrinkRecord['type']) => {
     setData(d => ({
@@ -280,6 +272,68 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...d,
       drinkRecords: d.drinkRecords.filter(r => r.id !== id),
     }));
+  }, []);
+
+  /* ===== 运动记录 ===== */
+  const addExerciseRecord = useCallback((date: string, content: string) => {
+    setData(d => ({
+      ...d,
+      exerciseRecords: [...d.exerciseRecords, { id: uid(), date, content }],
+    }));
+  }, []);
+
+  const updateExerciseRecord = useCallback((id: string, content: string) => {
+    setData(d => ({
+      ...d,
+      exerciseRecords: d.exerciseRecords.map(r =>
+        r.id === id ? { ...r, content } : r
+      ),
+    }));
+  }, []);
+
+  const deleteExerciseRecord = useCallback((id: string) => {
+    setData(d => ({
+      ...d,
+      exerciseRecords: d.exerciseRecords.filter(r => r.id !== id),
+    }));
+  }, []);
+
+  /* ===== 睡眠记录 ===== */
+  const setSleepRecord = useCallback((date: string, hours: number) => {
+    setData(d => {
+      const existing = d.sleepRecords.find(r => r.date === date);
+      if (existing) {
+        return {
+          ...d,
+          sleepRecords: d.sleepRecords.map(r =>
+            r.date === date ? { ...r, hours } : r
+          ),
+        };
+      }
+      return {
+        ...d,
+        sleepRecords: [...d.sleepRecords, { id: uid(), date, hours }],
+      };
+    });
+  }, []);
+
+  /* ===== 手机使用时长 ===== */
+  const setPhoneUsage = useCallback((date: string, compliant: boolean) => {
+    setData(d => {
+      const existing = d.phoneUsageRecords.find(r => r.date === date);
+      if (existing) {
+        return {
+          ...d,
+          phoneUsageRecords: d.phoneUsageRecords.map(r =>
+            r.date === date ? { ...r, compliant } : r
+          ),
+        };
+      }
+      return {
+        ...d,
+        phoneUsageRecords: [...d.phoneUsageRecords, { id: uid(), date, compliant }],
+      };
+    });
   }, []);
 
   /* ===== 备忘录 ===== */
@@ -310,11 +364,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setData(d => ({ ...d, lastNotifyDate: date }));
   }, []);
 
-  /* ===== 每月限额 ===== */
-  const setMonthlyBudget = useCallback((budget: number | null) => {
-    setData(d => ({ ...d, monthlyBudget: budget }));
-  }, []);
-
   return (
     <StoreContext value={{
       data,
@@ -322,9 +371,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addAnnualGoal, deleteAnnualGoal, toggleAnnualGoal, setAnnualPercentage,
       addAnnualSubTask, toggleAnnualSubTask, deleteAnnualSubTask, setAnnualGoalMode,
       addDailyGoal, deleteDailyGoal, toggleDailyRecord, isDailyDone,
-      addExpense, deleteExpense, importExpenses,
-      addNote, updateNote, deleteNote, addDrinkRecord, deleteDrinkRecord,
-      setReminderTime, setLastNotifyDate, setMonthlyBudget,
+      addDrinkRecord, deleteDrinkRecord,
+      addExerciseRecord, updateExerciseRecord, deleteExerciseRecord,
+      setSleepRecord,
+      setPhoneUsage,
+      addNote, updateNote, deleteNote,
+      setReminderTime, setLastNotifyDate,
     }}>
       {children}
     </StoreContext>

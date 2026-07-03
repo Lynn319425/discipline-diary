@@ -44,20 +44,28 @@ export interface DailyRecord {
   late?: boolean;
 }
 
-export interface ExpenseRecord {
-  id: string;
-  date: string;
-  amount: number;
-  category: string;
-  note: string;
-  type: 'expense' | 'income';
-  source: 'manual' | 'alipay' | 'wechat';
-}
-
 export interface DrinkRecord {
   id: string;
   date: string;
   type: 'milk_tea' | 'coffee' | 'other';
+}
+
+export interface ExerciseRecord {
+  id: string;
+  date: string;
+  content: string;
+}
+
+export interface SleepRecord {
+  id: string;
+  date: string;
+  hours: number;
+}
+
+export interface PhoneUsageRecord {
+  id: string;
+  date: string;
+  compliant: boolean;
 }
 
 export interface Note {
@@ -71,10 +79,11 @@ export interface AppData {
   annualGoals: AnnualGoal[];
   dailyGoals: DailyGoal[];
   dailyRecords: DailyRecord[];
-  expenses: ExpenseRecord[];
-  notes: Note[];
   drinkRecords: DrinkRecord[];
+  exerciseRecords: ExerciseRecord[];
+  sleepRecords: SleepRecord[];
+  phoneUsageRecords: PhoneUsageRecord[];
+  notes: Note[];
   reminderTime: string | null;
   lastNotifyDate: string | null;
-  monthlyBudget: number | null;
 }
