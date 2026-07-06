@@ -34,6 +34,9 @@ export interface DailyGoal {
   id: string;
   name: string;
   createdAt: string;
+  targetDays?: number;
+  completed?: boolean;
+  completedAt?: string;
 }
 
 export interface DailyRecord {

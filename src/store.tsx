@@ -71,7 +71,7 @@ interface StoreType {
   deleteAnnualSubTask: (goalId: string, subTaskId: string) => void;
   setAnnualGoalMode: (goalId: string, mode: 'percentage' | 'subtasks' | 'checkbox') => void;
   /* 每日目标（学习打卡） */
-  addDailyGoal: (name: string) => void;
+  addDailyGoal: (name: string, targetDays?: number) => void;
   deleteDailyGoal: (id: string) => void;
   toggleDailyRecord: (goalId: string, date: string, late?: boolean) => void;
   isDailyDone: (goalId: string, date: string) => boolean;
@@ -230,10 +230,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /* ===== 每日目标（学习打卡） ===== */
-  const addDailyGoal = useCallback((name: string) => {
+  const addDailyGoal = useCallback((name: string, targetDays?: number) => {
     setData(d => ({
       ...d,
-      dailyGoals: [...d.dailyGoals, { id: uid(), name, createdAt: now() }],
+      dailyGoals: [...d.dailyGoals, {
+        id: uid(), name, createdAt: now(),
+        targetDays: targetDays && targetDays > 0 ? targetDays : undefined,
+        completed: false,
+      }],
     }));
   }, []);
 
@@ -251,7 +255,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return { ...d, dailyRecords: d.dailyRecords.filter(r => r.id !== existing.id) };
       }
-      return { ...d, dailyRecords: [...d.dailyRecords, { id: uid(), goalId, date, completed: true, late: !!late }] };
+      const newRecords = [...d.dailyRecords, { id: uid(), goalId, date, completed: true, late: !!late }];
+
+      // Auto-complete: check if goal has targetDays and is now fulfilled
+      const goal = d.dailyGoals.find(g => g.id === goalId);
+      if (goal?.targetDays && !goal.completed) {
+        const ontime = newRecords.filter(r => r.goalId === goalId && !r.late).length;
+        if (ontime >= goal.targetDays) {
+          return {
+            ...d,
+            dailyRecords: newRecords,
+            dailyGoals: d.dailyGoals.map(g =>
+              g.id === goalId
+                ? { ...g, completed: true, completedAt: now() }
+                : g
+            ),
+          };
+        }
+      }
+
+      return { ...d, dailyRecords: newRecords };
     });
   }, []);
 

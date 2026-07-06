@@ -98,7 +98,7 @@ export default function App() {
       const t = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       if (t === data.reminderTime && data.lastNotifyDate !== todayStr) {
         const undone = data.dailyGoals.filter(g =>
-          !data.dailyRecords.some(r => r.goalId === g.id && r.date === todayStr && r.completed)
+          !g.completed && !data.dailyRecords.some(r => r.goalId === g.id && r.date === todayStr && r.completed)
         ).length;
         if (undone > 0 && 'Notification' in window && Notification.permission === 'granted') {
           new Notification('自律日记', { body: `今天还有 ${undone} 项学习未完成，去打卡吧！` });
@@ -627,23 +627,18 @@ function DisciplineTab() {
         </div>
       </div>
 
-      {/* 1. 学习 Section */}
-      <LearningSection
-        dailyGoals={data.dailyGoals}
-        dailyRecords={data.dailyRecords}
+      {/* 1. 睡眠 Section */}
+      <SleepSection
+        sleepRecords={data.sleepRecords}
         todayStr={todayStr}
-        isDailyDone={isDailyDone}
-        toggleDailyRecord={toggleDailyRecord}
-        deleteDailyGoal={deleteDailyGoal}
-        addDailyGoal={addDailyGoal}
-        doneCount={doneCount}
+        setSleepRecord={setSleepRecord}
       />
 
-      {/* 2. 咖啡奶茶 Section */}
-      <DrinkTrackerSection
-        drinkRecords={data.drinkRecords}
-        addDrinkRecord={addDrinkRecord}
-        deleteDrinkRecord={deleteDrinkRecord}
+      {/* 2. 手机使用 Section */}
+      <PhoneUsageSection
+        phoneUsageRecords={data.phoneUsageRecords}
+        todayStr={todayStr}
+        setPhoneUsage={setPhoneUsage}
       />
 
       {/* 3. 运动 Section */}
@@ -655,18 +650,23 @@ function DisciplineTab() {
         deleteExerciseRecord={deleteExerciseRecord}
       />
 
-      {/* 4. 睡眠 Section */}
-      <SleepSection
-        sleepRecords={data.sleepRecords}
+      {/* 4. 学习 Section */}
+      <LearningSection
+        dailyGoals={data.dailyGoals}
+        dailyRecords={data.dailyRecords}
         todayStr={todayStr}
-        setSleepRecord={setSleepRecord}
+        isDailyDone={isDailyDone}
+        toggleDailyRecord={toggleDailyRecord}
+        deleteDailyGoal={deleteDailyGoal}
+        addDailyGoal={addDailyGoal}
+        doneCount={doneCount}
       />
 
-      {/* 5. 手机使用 Section */}
-      <PhoneUsageSection
-        phoneUsageRecords={data.phoneUsageRecords}
-        todayStr={todayStr}
-        setPhoneUsage={setPhoneUsage}
+      {/* 5. 咖啡奶茶 Section */}
+      <DrinkTrackerSection
+        drinkRecords={data.drinkRecords}
+        addDrinkRecord={addDrinkRecord}
+        deleteDrinkRecord={deleteDrinkRecord}
       />
 
       {/* 本月热力图 + 统计 */}
@@ -683,27 +683,41 @@ function DisciplineTab() {
   );
 }
 
-/* ===== 1. 学习 ===== */
+/* ===== 4. 学习 ===== */
 function LearningSection({
   dailyGoals, dailyRecords, todayStr,
-  isDailyDone, toggleDailyRecord, deleteDailyGoal, addDailyGoal, doneCount,
+  isDailyDone, toggleDailyRecord, deleteDailyGoal, addDailyGoal, doneCount: _doneCount,
 }: {
-  dailyGoals: { id: string; name: string; createdAt: string }[];
+  dailyGoals: { id: string; name: string; createdAt: string; targetDays?: number; completed?: boolean; completedAt?: string }[];
   dailyRecords: DailyRecord[];
   todayStr: string;
   isDailyDone: (goalId: string, date: string) => boolean;
   toggleDailyRecord: (goalId: string, date: string, late?: boolean) => void;
   deleteDailyGoal: (id: string) => void;
-  addDailyGoal: (name: string) => void;
+  addDailyGoal: (name: string, targetDays?: number) => void;
   doneCount: number;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
+  const [targetDays, setTargetDays] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+
+  const activeGoals = dailyGoals.filter(g => !g.completed);
+  const archivedGoals = dailyGoals.filter(g => g.completed);
 
   const handleAdd = () => {
     if (!name.trim()) return;
-    addDailyGoal(name.trim());
-    setName(''); setShowForm(false);
+    const days = targetDays.trim() ? parseInt(targetDays) : undefined;
+    addDailyGoal(name.trim(), days);
+    setName(''); setTargetDays(''); setShowForm(false);
+  };
+
+  /** 计算目标进度（有 targetDays 时） */
+  const goalProgress = (goalId: string) => {
+    const goal = dailyGoals.find(g => g.id === goalId);
+    if (!goal?.targetDays) return null;
+    const ontime = dailyRecords.filter(r => r.goalId === goalId && !r.late).length;
+    return { done: Math.min(ontime, goal.targetDays), total: goal.targetDays, pct: Math.round((ontime / goal.targetDays) * 100) };
   };
 
   return (
@@ -712,7 +726,7 @@ function LearningSection({
         <div className="flex items-center gap-2">
           <span className="text-lg">📖</span>
           <h3 className="text-sm font-medium text-gray-700">学习</h3>
-          <span className="text-xs text-gray-400">{doneCount}/{dailyGoals.length}</span>
+          <span className="text-xs text-gray-400">{activeGoals.filter(g => isDailyDone(g.id, todayStr)).length}/{activeGoals.length}</span>
         </div>
         <button onClick={() => setShowForm(!showForm)}
           className="text-xs text-amber-600 hover:text-amber-700 transition-colors">
@@ -720,53 +734,105 @@ function LearningSection({
         </button>
       </div>
 
-      {dailyGoals.length === 0 && (
+      {activeGoals.length === 0 && (
         <p className="text-xs text-gray-400 text-center py-2">还没有学习目标，点击「+ 添加」</p>
       )}
 
+      {/* 进行中的目标 */}
       <div className="divide-y divide-gray-50">
-        {dailyGoals.map(goal => {
+        {activeGoals.map(goal => {
           const done = isDailyDone(goal.id, todayStr);
           const streak = calcStreak(dailyRecords, goal.id);
           const yesterdayStr = dateToStr(new Date(Date.now() - 86400000));
           const hasYesterday = dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && !r.late);
           const hasYesterdayLate = dailyRecords.some(r => r.goalId === goal.id && r.date === yesterdayStr && r.late);
+          const progress = goalProgress(goal.id);
           return (
-            <div key={goal.id} className="flex items-center gap-3 py-2">
-              <button onClick={() => toggleDailyRecord(goal.id, todayStr)}
-                className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 transition-all ${done ? 'bg-emerald-500 text-white' : 'border-2 border-gray-300'}`}>
-                {done && '✓'}
-              </button>
-              <span className={`flex-1 text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{goal.name}</span>
-              {!hasYesterday && (
-                <button onClick={() => toggleDailyRecord(goal.id, yesterdayStr, true)}
-                  className={`text-[10px] shrink-0 transition-colors ${hasYesterdayLate ? 'text-amber-500' : 'text-gray-400 hover:text-amber-500'}`}>
-                  {hasYesterdayLate ? '已补✓' : '补昨日'}
+            <div key={goal.id} className="py-2">
+              <div className="flex items-center gap-3">
+                <button onClick={() => toggleDailyRecord(goal.id, todayStr)}
+                  className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 transition-all ${done ? 'bg-emerald-500 text-white' : 'border-2 border-gray-300'}`}>
+                  {done && '✓'}
                 </button>
+                <span className={`flex-1 text-sm ${done ? 'text-gray-400 line-through' : 'text-gray-900'}`}>{goal.name}</span>
+                {!hasYesterday && (
+                  <button onClick={() => toggleDailyRecord(goal.id, yesterdayStr, true)}
+                    className={`text-[10px] shrink-0 transition-colors ${hasYesterdayLate ? 'text-amber-500' : 'text-gray-400 hover:text-amber-500'}`}>
+                    {hasYesterdayLate ? '已补✓' : '补昨日'}
+                  </button>
+                )}
+                {streak > 0 && (
+                  <span className="text-xs text-orange-500 shrink-0">🔥 {streak}天</span>
+                )}
+                <button onClick={() => { if (confirm('删除这个习惯？')) deleteDailyGoal(goal.id); }}
+                  className="text-gray-300 hover:text-red-400 text-xs shrink-0">✕</button>
+              </div>
+              {/* 目标天数进度条 */}
+              {progress && (
+                <div className="flex items-center gap-2 mt-1.5 ml-9">
+                  <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${progress.pct >= 100 ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                      style={{ width: `${progress.pct}%` }} />
+                  </div>
+                  <span className="text-[10px] text-gray-400 shrink-0">{progress.done}/{progress.total} 天</span>
+                  {progress.pct >= 100 && (
+                    <span className="text-[10px] text-emerald-500 font-medium shrink-0">✅ 已完成</span>
+                  )}
+                </div>
               )}
-              {streak > 0 && (
-                <span className="text-xs text-orange-500 shrink-0">🔥 {streak}天</span>
-              )}
-              <button onClick={() => { if (confirm('删除这个习惯？')) deleteDailyGoal(goal.id); }}
-                className="text-gray-300 hover:text-red-400 text-xs shrink-0">✕</button>
             </div>
           );
         })}
       </div>
 
+      {/* 已归档目标 */}
+      {archivedGoals.length > 0 && (
+        <div className="border-t border-gray-50 pt-2">
+          <button onClick={() => setShowArchived(!showArchived)}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+            📂 已完成 ({archivedGoals.length}) <span className="text-[10px]">{showArchived ? '▲' : '▼'}</span>
+          </button>
+          {showArchived && (
+            <div className="divide-y divide-gray-50 mt-1">
+              {archivedGoals.map(goal => (
+                <div key={goal.id} className="flex items-center gap-3 py-1.5 opacity-60">
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs bg-emerald-100 text-emerald-500 shrink-0">
+                    ✓
+                  </div>
+                  <span className="flex-1 text-sm text-gray-500 line-through">{goal.name}</span>
+                  <span className="text-[10px] text-gray-400 shrink-0">
+                    {goal.completedAt ? goal.completedAt.slice(0, 10) : ''}
+                  </span>
+                  <button onClick={() => { if (confirm('删除这个习惯？')) deleteDailyGoal(goal.id); }}
+                    className="text-gray-300 hover:text-red-400 text-xs shrink-0">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 添加表单 */}
       {showForm && (
-        <div className="pt-2 flex gap-2">
-          <input placeholder="习惯名称，如：背单词20个" value={name} onChange={e => setName(e.target.value)}
-            className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
-          <button onClick={handleAdd}
-            className="px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加</button>
+        <div className="pt-2 space-y-2">
+          <div className="flex gap-2">
+            <input placeholder="习惯名称，如：学pandas" value={name} onChange={e => setName(e.target.value)}
+              className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" autoFocus />
+            <button onClick={handleAdd}
+              className="px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">添加</button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="number" min="1" placeholder="目标天数（选填，填了到期自动归档）"
+              value={targetDays} onChange={e => setTargetDays(e.target.value)}
+              className="flex-1 px-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-/* ===== 2. 奶茶咖啡追踪 ===== */
+/* ===== 5. 咖啡奶茶追踪 ===== */
 function DrinkTrackerSection({
   drinkRecords, addDrinkRecord, deleteDrinkRecord,
 }: {
@@ -900,6 +966,7 @@ function ExerciseSection({
   const [input, setInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [expanded, setExpanded] = useState(false);
 
   const handleAdd = () => {
     if (!input.trim()) return;
@@ -916,13 +983,27 @@ function ExerciseSection({
   const todayExercises = exerciseRecords.filter(r => r.date === todayStr);
   const todayCount = todayExercises.length;
 
+  // 本周运动天数统计
+  const weekStart = getWeekStart(new Date());
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+  const weekDaysSet = new Set(
+    exerciseRecords.filter(r => {
+      const d = new Date(r.date);
+      return d >= weekStart && d < weekEnd;
+    }).map(r => r.date)
+  );
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700">🏋️ 运动记录</h3>
-        {todayCount > 0 && (
-          <span className="text-xs text-gray-400">今日 {todayCount} 条</span>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-emerald-600 font-medium">本周运动 {weekDaysSet.size} 天</span>
+          {todayCount > 0 && (
+            <span className="text-xs text-gray-400">今日 {todayCount} 条</span>
+          )}
+        </div>
       </div>
 
       {/* 添加 */}
@@ -938,7 +1019,7 @@ function ExerciseSection({
       {/* 今日记录列表 */}
       {todayExercises.length > 0 && (
         <div className="space-y-1.5">
-          {todayExercises.map(r => (
+          {(expanded ? todayExercises : todayExercises.slice(0, 3)).map(r => (
             <div key={r.id}>
               {editingId === r.id ? (
                 <div className="flex gap-2">
@@ -962,6 +1043,12 @@ function ExerciseSection({
               )}
             </div>
           ))}
+          {todayExercises.length > 3 && (
+            <button onClick={() => setExpanded(!expanded)}
+              className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+              {expanded ? '收起 ▲' : `展开全部 ${todayExercises.length} 条 ▼`}
+            </button>
+          )}
         </div>
       )}
 
@@ -972,7 +1059,7 @@ function ExerciseSection({
   );
 }
 
-/* ===== 4. 睡眠记录 ===== */
+/* ===== 1. 睡眠记录 ===== */
 function SleepSection({
   sleepRecords, todayStr, setSleepRecord,
 }: {
@@ -1079,7 +1166,7 @@ function SleepSection({
   );
 }
 
-/* ===== 5. 手机使用时长 ===== */
+/* ===== 2. 手机使用时长 ===== */
 function PhoneUsageSection({
   phoneUsageRecords, todayStr, setPhoneUsage,
 }: {
