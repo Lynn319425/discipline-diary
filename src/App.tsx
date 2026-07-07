@@ -1077,20 +1077,20 @@ function ExerciseSection({
       )}
 
       {/* 添加 */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 items-center">
         <input placeholder="如：jo姐 5000步" value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-          className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
-        <div className="flex items-center gap-1">
+          className="flex-1 min-w-0 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
+        <div className="flex items-center gap-0.5 shrink-0">
           <input placeholder="消耗" value={calInput}
             onChange={e => setCalInput(e.target.value.replace(/\D/g, ''))}
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-            className="w-16 px-2 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400 text-right" />
+            className="w-14 px-2 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400 text-right" />
           <span className="text-xs text-gray-400">卡</span>
         </div>
         <button onClick={handleAdd}
-          className="px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">保存</button>
+          className="shrink-0 px-2.5 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">保存</button>
       </div>
 
       {/* 今日记录列表 */}
