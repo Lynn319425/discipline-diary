@@ -674,6 +674,8 @@ function DisciplineTab() {
         <MonthlySection
           dailyGoals={data.dailyGoals}
           dailyRecords={data.dailyRecords}
+          exerciseRecords={data.exerciseRecords}
+          drinkRecords={data.drinkRecords}
           sleepRecords={data.sleepRecords}
           phoneUsageRecords={data.phoneUsageRecords}
           todayStr={todayStr}
@@ -1183,36 +1185,36 @@ function SleepSection({
   const maxHours = 12; // chart max
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 space-y-2">
       <h3 className="text-sm font-medium text-gray-700">😴 睡眠记录</h3>
 
       {/* 今日睡眠输入 */}
-      <div className="flex items-center justify-center gap-4 py-2">
+      <div className="flex items-center justify-center gap-3 py-1">
         <button onClick={() => handleChange(-0.5)}
-          className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm text-gray-600 hover:bg-gray-200 transition-colors">−</button>
+          className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-600 hover:bg-gray-200 transition-colors">−</button>
         <div className="text-center">
-          <span className={`text-3xl font-bold ${isSet && !isGood ? 'text-orange-500' : isGood ? 'text-emerald-500' : 'text-gray-400'}`}>
+          <span className={`text-xl font-bold ${isSet && !isGood ? 'text-orange-500' : isGood ? 'text-emerald-500' : 'text-gray-400'}`}>
             {displayHours}
           </span>
-          <span className="text-sm text-gray-400 ml-1">h</span>
-          <div className="text-xs mt-0.5">
+          <span className="text-xs text-gray-400 ml-0.5">h</span>
+          <div className="text-[10px] mt-0.5">
             {!isSet ? (
-              <span className="text-gray-400">点击 ± 设置今日睡眠</span>
+              <span className="text-gray-400">点击 ± 设置</span>
             ) : isGood ? (
-              <span className="text-emerald-500">✅ 大于 8h，达标！</span>
+              <span className="text-emerald-500">✅ 达标</span>
             ) : (
-              <span className="text-orange-500">❌ {displayHours}h，需大于 8h</span>
+              <span className="text-orange-500">❌ {displayHours}h</span>
             )}
           </div>
         </div>
         <button onClick={() => handleChange(0.5)}
-          className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm text-gray-600 hover:bg-gray-200 transition-colors">+</button>
+          className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-600 hover:bg-gray-200 transition-colors">+</button>
       </div>
 
-      {/* 近 7 天趋势图 */}
+      {/* 近 7 天趋势 */}
       <div>
-        <p className="text-xs text-gray-400 mb-2">近 7 天趋势</p>
-        <div className="flex items-end gap-2 h-24">
+        <p className="text-[10px] text-gray-400 mb-1.5">近 7 天</p>
+        <div className="flex items-end gap-2 h-16">
           {chartData.map((d, i) => {
             const pct = d.hours > 0 ? (d.hours / maxHours) * 100 : 0;
             const isToday = i === 6;
@@ -1240,9 +1242,9 @@ function SleepSection({
             );
           })}
         </div>
-        <div className="flex items-center gap-1 mt-1 text-[10px] text-gray-400">
+        <div className="flex items-center gap-1 mt-0.5 text-[10px] text-gray-400">
           <span className="text-red-300">- -</span>
-          <span>8h 达标线</span>
+          <span>8h</span>
         </div>
       </div>
     </div>
@@ -1326,10 +1328,12 @@ function PhoneUsageSection({
 
 /* ===== 本月汇总 ===== */
 function MonthlySection({
-  dailyGoals, dailyRecords, sleepRecords, phoneUsageRecords, todayStr,
+  dailyGoals, dailyRecords, exerciseRecords, drinkRecords, sleepRecords, phoneUsageRecords, todayStr,
 }: {
   dailyGoals: { id: string; name: string }[];
   dailyRecords: DailyRecord[];
+  exerciseRecords: ExerciseRecord[];
+  drinkRecords: DrinkRecord[];
   sleepRecords: { date: string; hours: number }[];
   phoneUsageRecords: { date: string; compliant: boolean }[];
   todayStr: string;
@@ -1347,6 +1351,15 @@ function MonthlySection({
   const phoneRate = monthPhoneRecords.length > 0
     ? Math.round((monthPhoneRecords.filter(r => r.compliant).length / monthPhoneRecords.length) * 100)
     : 0;
+
+  // 运动统计
+  const monthExerciseRecords = exerciseRecords.filter(r => r.date.startsWith(monthPrefix));
+  const exerciseDays = new Set(monthExerciseRecords.map(r => r.date)).size;
+  const exerciseCalSum = monthExerciseRecords.reduce((s, r) => s + (r.calories ?? 0), 0);
+
+  // 咖啡奶茶统计
+  const monthDrinkRecords = drinkRecords.filter(r => r.date.startsWith(monthPrefix));
+  const drinkCount = monthDrinkRecords.length;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
@@ -1380,7 +1393,7 @@ function MonthlySection({
         </div>
       )}
 
-      {/* 其他汇总 */}
+      {/* 各项统计卡片 */}
       <div className="border-t border-gray-50 pt-3 grid grid-cols-2 gap-3">
         <div className="bg-gray-50 rounded-xl p-3 text-center">
           <p className="text-xs text-gray-400">😴 平均睡眠</p>
@@ -1395,6 +1408,15 @@ function MonthlySection({
             {monthPhoneRecords.length > 0 ? `${phoneRate}%` : '—'}
           </p>
           <p className="text-[10px] text-gray-400">记录 {monthPhoneRecords.length} 天</p>
+        </div>
+        <div className="bg-gray-50 rounded-xl p-3 text-center">
+          <p className="text-xs text-gray-400">🏋️ 运动</p>
+          <p className="text-lg font-bold text-emerald-500">{exerciseDays > 0 ? `${exerciseDays} 天` : '—'}</p>
+          <p className="text-[10px] text-gray-400">{exerciseCalSum > 0 ? `🔥 ${exerciseCalSum} 卡` : ''}</p>
+        </div>
+        <div className="bg-gray-50 rounded-xl p-3 text-center">
+          <p className="text-xs text-gray-400">☕ 咖啡奶茶</p>
+          <p className="text-lg font-bold text-amber-600">{drinkCount > 0 ? `${drinkCount} 杯` : '—'}</p>
         </div>
       </div>
     </div>
