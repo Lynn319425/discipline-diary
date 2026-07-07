@@ -1265,11 +1265,16 @@ function PhoneUsageSection({
   const label = workday ? '工作日' : '非工作日';
   const todayRecord = phoneUsageRecords.find(r => r.date === todayStr);
 
-  // 本月达标率
-  const monthPrefix = todayStr.slice(0, 7);
-  const monthRecords = phoneUsageRecords.filter(r => r.date.startsWith(monthPrefix));
-  const monthCompliant = monthRecords.filter(r => r.compliant).length;
-  const monthRate = monthRecords.length > 0 ? Math.round((monthCompliant / monthRecords.length) * 100) : 0;
+  // 本周达标天数
+  const weekStart = getWeekStart(new Date());
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+  const weekRecords = phoneUsageRecords.filter(r => {
+    const d = new Date(r.date);
+    return d >= weekStart && d < weekEnd;
+  });
+  const weekCompliant = weekRecords.filter(r => r.compliant).length;
+  const weekTotal = weekRecords.length;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
@@ -1313,13 +1318,13 @@ function PhoneUsageSection({
         )}
       </div>
 
-      {monthRecords.length > 0 && (
+      {weekRecords.length > 0 && (
         <div className="flex items-center gap-2 pt-1">
           <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full ${monthRate >= 80 ? 'bg-emerald-400' : monthRate >= 50 ? 'bg-amber-400' : 'bg-orange-400'}`}
-              style={{ width: `${monthRate}%` }} />
+            <div className={`h-full rounded-full ${weekCompliant >= 5 ? 'bg-emerald-400' : weekCompliant >= 3 ? 'bg-amber-400' : 'bg-orange-400'}`}
+              style={{ width: `${weekTotal > 0 ? (weekCompliant / weekTotal) * 100 : 0}%` }} />
           </div>
-          <span className="text-xs text-gray-400 shrink-0">本月达标 {monthCompliant}/{monthRecords.length} ({monthRate}%)</span>
+          <span className="text-xs text-gray-400 shrink-0">本周达标 {weekCompliant}/{weekTotal} 天</span>
         </div>
       )}
     </div>
