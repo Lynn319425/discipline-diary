@@ -79,8 +79,8 @@ interface StoreType {
   addDrinkRecord: (date: string, type: DrinkRecord['type']) => void;
   deleteDrinkRecord: (id: string) => void;
   /* 运动记录 */
-  addExerciseRecord: (date: string, content: string) => void;
-  updateExerciseRecord: (id: string, content: string) => void;
+  addExerciseRecord: (date: string, content: string, calories?: number) => void;
+  updateExerciseRecord: (id: string, content: string, calories?: number) => void;
   deleteExerciseRecord: (id: string) => void;
   /* 睡眠记录 */
   setSleepRecord: (date: string, hours: number) => void;
@@ -298,18 +298,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /* ===== 运动记录 ===== */
-  const addExerciseRecord = useCallback((date: string, content: string) => {
+  const addExerciseRecord = useCallback((date: string, content: string, calories?: number) => {
     setData(d => ({
       ...d,
-      exerciseRecords: [...d.exerciseRecords, { id: uid(), date, content }],
+      exerciseRecords: [...d.exerciseRecords, { id: uid(), date, content, ...(calories !== undefined ? { calories } : {}) }],
     }));
   }, []);
 
-  const updateExerciseRecord = useCallback((id: string, content: string) => {
+  const updateExerciseRecord = useCallback((id: string, content: string, calories?: number) => {
     setData(d => ({
       ...d,
       exerciseRecords: d.exerciseRecords.map(r =>
-        r.id === id ? { ...r, content } : r
+        r.id === id ? { ...r, content, ...(calories !== undefined ? { calories } : {}) } : r
       ),
     }));
   }, []);

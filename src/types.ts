@@ -57,6 +57,7 @@ export interface ExerciseRecord {
   id: string;
   date: string;
   content: string;
+  calories?: number;
 }
 
 export interface SleepRecord {

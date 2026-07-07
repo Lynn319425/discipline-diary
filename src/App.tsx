@@ -959,25 +959,37 @@ function ExerciseSection({
 }: {
   exerciseRecords: ExerciseRecord[];
   todayStr: string;
-  addExerciseRecord: (date: string, content: string) => void;
-  updateExerciseRecord: (id: string, content: string) => void;
+  addExerciseRecord: (date: string, content: string, calories?: number) => void;
+  updateExerciseRecord: (id: string, content: string, calories?: number) => void;
   deleteExerciseRecord: (id: string) => void;
 }) {
   const [input, setInput] = useState('');
+  const [calInput, setCalInput] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [editCal, setEditCal] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [showWeek, setShowWeek] = useState(false);
 
   const handleAdd = () => {
     if (!input.trim()) return;
-    addExerciseRecord(todayStr, input.trim());
+    const cals = calInput.trim() ? Number(calInput.trim()) : undefined;
+    addExerciseRecord(todayStr, input.trim(), cals && !isNaN(cals) ? cals : undefined);
     setInput('');
+    setCalInput('');
   };
 
   const handleEdit = (id: string) => {
     if (!editText.trim()) return;
-    updateExerciseRecord(id, editText.trim());
-    setEditingId(null); setEditText('');
+    const cals = editCal.trim() ? Number(editCal.trim()) : undefined;
+    updateExerciseRecord(id, editText.trim(), cals && !isNaN(cals) ? cals : undefined);
+    setEditingId(null); setEditText(''); setEditCal('');
+  };
+
+  const startEdit = (r: ExerciseRecord) => {
+    setEditingId(r.id);
+    setEditText(r.content);
+    setEditCal(r.calories ? String(r.calories) : '');
   };
 
   const todayExercises = exerciseRecords.filter(r => r.date === todayStr);
@@ -994,24 +1006,89 @@ function ExerciseSection({
     }).map(r => r.date)
   );
 
+  // 本周运动记录分组
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const ds = dateToStr(d);
+    const dayLabel = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][i];
+    const records = exerciseRecords.filter(r => r.date === ds);
+    const totalCal = records.reduce((s, r) => s + (r.calories ?? 0), 0);
+    return { date: ds, dayLabel, records, totalCal };
+  });
+
+  const weekCalSum = weekDays.reduce((s, d) => s + d.totalCal, 0);
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-3">
+      {/* 标题行 */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-gray-700">🏋️ 运动记录</h3>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-emerald-600 font-medium">本周运动 {weekDaysSet.size} 天</span>
+          <button onClick={() => setShowWeek(!showWeek)}
+            className={`text-xs font-medium transition-colors flex items-center gap-1 ${showWeek ? 'text-amber-600' : 'text-emerald-600 hover:text-emerald-700'}`}>
+            本周运动 {weekDaysSet.size} 天 <span className="text-[10px]">{showWeek ? '▲' : '▼'}</span>
+          </button>
           {todayCount > 0 && (
             <span className="text-xs text-gray-400">今日 {todayCount} 条</span>
           )}
         </div>
       </div>
 
+      {/* 周视图（点击展开） */}
+      {showWeek && (
+        <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-gray-500 font-medium">
+              {weekDays[0].date} ~ {weekDays[6].date}（{weekDaysSet.size}/7 天）
+            </span>
+            {weekCalSum > 0 && (
+              <span className="text-xs font-medium text-gray-600">🔥 {weekCalSum} 卡</span>
+            )}
+          </div>
+          {weekDays.map(d => (
+            <div key={d.date}>
+              {d.records.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-xs text-gray-400 min-w-[3em]">{d.dayLabel}</span>
+                    <div className="h-px flex-1 bg-gray-200" />
+                    <span className="text-xs text-gray-400">{d.totalCal > 0 ? `${d.totalCal} 卡` : ''}</span>
+                  </div>
+                  <div className="ml-[0.5em] space-y-1 border-l-2 border-amber-200 pl-3">
+                    {d.records.map(r => (
+                      <div key={r.id} className="flex items-center gap-1.5 text-xs text-gray-600">
+                        <span className="w-1 h-1 rounded-full bg-amber-300 shrink-0" />
+                        <span>{r.content}</span>
+                        {r.calories && <span className="text-gray-400">· {r.calories} 卡</span>}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-xs text-gray-300 py-0.5">
+                  <span className="min-w-[3em] inline-block">{d.dayLabel}</span>
+                  <span className="text-gray-200">—</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 添加 */}
       <div className="flex gap-2">
-        <input placeholder="如：周六 费教练臀腿" value={input}
+        <input placeholder="如：jo姐 5000步" value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
           className="flex-1 px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400" />
+        <div className="flex items-center gap-1">
+          <input placeholder="消耗" value={calInput}
+            onChange={e => setCalInput(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+            className="w-16 px-2 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-amber-300 placeholder:text-gray-400 text-right" />
+          <span className="text-xs text-gray-400">卡</span>
+        </div>
         <button onClick={handleAdd}
           className="px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition-colors">保存</button>
       </div>
@@ -1022,10 +1099,13 @@ function ExerciseSection({
           {(expanded ? todayExercises : todayExercises.slice(0, 3)).map(r => (
             <div key={r.id}>
               {editingId === r.id ? (
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <input value={editText} onChange={e => setEditText(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleEdit(r.id); }}
                     className="flex-1 px-3 py-1.5 text-sm bg-gray-50 border border-amber-300 rounded-lg focus:outline-none placeholder:text-gray-400" autoFocus />
+                  <input value={editCal} onChange={e => setEditCal(e.target.value.replace(/\D/g, ''))}
+                    placeholder="卡"
+                    className="w-14 px-2 py-1.5 text-sm bg-gray-50 border border-amber-300 rounded-lg focus:outline-none text-right" />
                   <button onClick={() => handleEdit(r.id)}
                     className="text-xs text-amber-600 font-medium">保存</button>
                   <button onClick={() => setEditingId(null)}
@@ -1035,7 +1115,10 @@ function ExerciseSection({
                 <div className="flex items-center gap-2 px-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                   <span className="flex-1 text-sm text-gray-700">{r.content}</span>
-                  <button onClick={() => { setEditingId(r.id); setEditText(r.content); }}
+                  {r.calories && (
+                    <span className="text-xs text-gray-400">{r.calories} 卡</span>
+                  )}
+                  <button onClick={() => startEdit(r)}
                     className="text-xs text-gray-400 hover:text-amber-500 transition-colors">✏️</button>
                   <button onClick={() => deleteExerciseRecord(r.id)}
                     className="text-xs text-gray-300 hover:text-red-400 transition-colors">✕</button>
